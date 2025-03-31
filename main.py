@@ -2,6 +2,7 @@ import db
 import readline, os
 
 allType = ["Date", "Year", "Time", "Datetime", "Bool", "Number", "Float", "String", "Text", "Bit"]
+constraint = ["Not_null", "Unique", "Primary_key", "Foreign_key", "Check", "Default", "EAuto_increment"]
 db = db.Db()
 useDatabase = ""
 isDbUse = False
@@ -25,7 +26,6 @@ while True:
         readline.write_history_file(".history")
         print("\nBye! It was my")
         exit()
-
 
     if cmd.strip() == "clear" or cmd == "clear;":
         os.system("clear")
@@ -76,6 +76,7 @@ while True:
             print(f"database {useDatabase} doesn't exist")
 
     elif cmd.startswith("create_table "):
+        attribute1 = {}
         flags = False
         if isDbUse:
             if "(" in cmd and cmd.count('(') == 1 and cmd.count(')') == 1:
@@ -84,7 +85,7 @@ while True:
                 data = cmd.split('(')[1].split(',')
                 attribute = {}
                 getType = ""
-                if len(cmd.split('(')) == 2:
+                if len(cmd.split('(')) == 2 and len(data) > 0:
                     for val in data:
                         values = val.strip().split(':')
                         getType = values[1].split('[')[0].strip().capitalize()
@@ -96,7 +97,9 @@ while True:
                     if not flags:
                         print("!!! type error !!!")
                     else:
-                        db.create_Table(useDatabase, name, attribute)
+                        attribute1["caracteristique"] = attribute
+                        attribute1["data"] = []
+                        db.create_Table(useDatabase, name, attribute1)
                 else:
                     print("\n\033[31m!!! syntaxe error !!!\033[0m\n")
             else:

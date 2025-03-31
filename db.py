@@ -19,10 +19,10 @@ class Db :
         #action = Action.Action(".database/"+self.dbName)
         files = self.list_table(".database/"+dbName.strip())
         isTableFound = False
-
-        if name.strip() == i.split(".")[0].strip():
-                isTableFound = True
-            
+        for i in files:
+            if name.strip() == i.split(".")[0].strip():
+                    isTableFound = True
+                    break
         if isTableFound == False:
             action = Action.Action(".database/"+self.dbName.strip())
             action.creer_fichier(".database/"+dbName, name, attribute)
@@ -159,7 +159,6 @@ class Db :
                     allDataThemeSame = False
                     break
 
-            # Si une erreur est détectée, afficher un message d'erreur
             if not allDataThemeSame or not isSecondPartExist or not verifyType:
                 print(allDataThemeSame)
                 print(isSecondPartExist)

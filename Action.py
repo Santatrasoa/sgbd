@@ -30,14 +30,3 @@ class Action :
         else:
             print("Le fichier JSON n'existe pas.")
             return None
-    
-def list_return_dir(path):
-    directory = Path(path)
-    dirs = [item for item in directory.iterdir() if item.is_dir()]
-    return dirs
-        
-def list_return_file(path):
-    directory = Path(path)
-    file = [item for item in directory.iterdir() if item.is_file()]
-    return file
-
