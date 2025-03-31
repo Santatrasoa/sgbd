@@ -1,0 +1,30 @@
+clear
+use song;
+list_table;
+exi
+t
+;
+list_table;
+use song;
+list_db;
+list_table;
+list_db;
+clear
+exit
+use song
+;
+list_table;
+add_into_table rock(id=1, singer="Ambondrona"
+;
+add_into_table rock(id=1, singer="Ambondrona");
+use song
+;
+add_into_table rock(id=1, singer="Ambondrona");
+use song;
+add_into_table rock(id=1, singer="Ambondrona");
+use song;
+add_into_table rock(id=1, singer="Ambondrona");
+use song;
+add_into_table rock(id=1, singer="Ambondrona");
+use song;
+add_into_table rock(id=1, singer="Ambondrona");

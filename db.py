@@ -54,7 +54,7 @@ class Db :
                 shutil.rmtree(directory)
                 print(f"database {databaseName} removed")
             else:
-                print("I am here")
+                print("Database does not exist")
         except Exception as e:
             print(f"can not remove this database ",e)
 
@@ -86,7 +86,6 @@ class Db :
             print("empty :(")
 
     def analyse_data(self, path, data):
-        print("Data azo:", data)
         contentTable = {}
         addedData = {}
         if os.path.exists(path):
@@ -109,7 +108,7 @@ class Db :
                     isSecondPartExist = False
                     break
 
-                if nameOfData[i] == tmpData[0]:
+                if nameOfData[i].strip() == tmpData[0].strip():
                     # Validation selon le type de données
                     if typeOfData[i] == "Number" and not tmpData[1].isdigit():
                         verifyType = False
@@ -155,7 +154,6 @@ class Db :
                         break
 
                     # Ajouter les données validées
-                    print("Eto zany debug:", tmpData[1])
                     addedData[tmpData[0]] = tmpData[1]
                 else:
                     allDataThemeSame = False
@@ -163,8 +161,15 @@ class Db :
 
             # Si une erreur est détectée, afficher un message d'erreur
             if not allDataThemeSame or not isSecondPartExist or not verifyType:
+                print(allDataThemeSame)
+                print(isSecondPartExist)
+                print(verifyType)
                 print("Syntaxe error")
             else:
-                print(type(addedData), addedData)
+                contentTable["data"].append(addedData)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(contentTable, f, indent=4)
+                print("Data added")
+                pass
         else:
             print("Syntax Error")

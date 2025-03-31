@@ -115,7 +115,7 @@ while True:
                 path = ".database/" + useDatabase.strip()
                 allTable = db.list_table(path)
                 isTableExist = False
-            
+
 
                 for table in allTable:
                     if table.split('.')[0].strip() == getData[0].strip():
@@ -124,11 +124,8 @@ while True:
                 if isTableExist:
                     if cmd.count("(") > 2 or cmd.count(')') > 2 or cmd.count("(") == 0 or cmd.count(')') == 0: print("syntaxe error")
                     else:
-                        print("commande:",cmd)
                         getData[1] = getData[1].replace(')', "")
-                        print("get data 1:", getData[1])
                         verifyData = getData[1].split(',')
-                        print("verify data:", verifyData)
                         pathToFile = path+'/'+getData[0].strip()+".json"
                         db.analyse_data(pathToFile,verifyData)
                         pass
@@ -161,7 +158,7 @@ while True:
     elif cmd.startswith("list_database") or cmd.startswith("list_db"):
         db.show_databases()
 
-    elif cmd == "list_table;":
+    elif cmd.startswith("list_table"):
         if isDbUse:
             path = ".database/" + useDatabase.strip()
             tables = db.list_table(path)
