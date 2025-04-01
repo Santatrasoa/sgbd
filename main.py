@@ -81,6 +81,7 @@ while True:
     elif cmd_line.startswith("create_table"):
         attribute1 = {}
         flags = False
+        getConstraint = {}
         if isDbUse:
             if "(" in cmd and cmd.count('(') == 1 and cmd.count(')') == 1:
                 name = cmd.split(" ")[1].split('(')[0]
@@ -90,8 +91,16 @@ while True:
                 getType = ""
                 if len(cmd.split('(')) == 2 and len(data) > 0:
                     for val in data:
-                        values = val.strip().split(':')
-                        getType = values[1].split('[')[0].strip().capitalize()
+                        values = val.strip().split(':')    
+                        getType = ""
+                        if "[" in values[1]:
+                            constraint = values[1].split('[')[1].replace(']', "").strip()
+                            getConstraint[values[0]] = constraint
+                            getType = values[1].split('[')[0].strip().capitalize()
+                        else:
+                            getConstraint[values[0]] = "no constraint"
+                            getType = values[1].strip().capitalize()
+
                         attribute[values[0]] = values[1].capitalize()
                         for type in allType:
                             if type.strip() == getType.strip():
@@ -101,7 +110,9 @@ while True:
                         print("!!! type error !!!")
                     else:
                         attribute1["caracteristique"] = attribute
+                        attribute1["constraint"] = getConstraint
                         attribute1["data"] = []
+                        print(getConstraint)
                         db.create_Table(useDatabase, name, attribute1)
                 else:
                     print("\n\033[31m!!! syntaxe error !!!\033[0m\n")

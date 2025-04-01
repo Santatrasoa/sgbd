@@ -16,7 +16,6 @@ class Db :
             action.creer_dossier(".database/"+dbName)
     
     def create_Table(self, dbName, name ,attribute):
-        #action = Action.Action(".database/"+self.dbName)
         files = self.list_table(".database/"+dbName.strip())
         isTableFound = False
         for i in files:

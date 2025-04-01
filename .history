@@ -1,0 +1,14 @@
+use_db song;
+create_table pop-rock(id:Number[unique not null]);
+create_table pop-rock(id:number[unique not null]);
+use_db song;
+create_table pop-rock(id:number[unique not null]);
+use_db song;
+create_table pop-rock(id:number[unique not null]);
+use_db song;
+create_table pop-rock(id:number[unique not null]);
+create_table pop-rock(id:number[unique not null], singer:string[not null]);
+use_db song;
+create_table pop-rock(id:number[unique not null], singer:string[not null]);
+create_table pop-rock(id:number[unique not null], singer:string[]);
+create_table pop-rock(id:number[unique not null], singer:string);
