@@ -16,7 +16,7 @@ readline.read_history_file(".history")
 while True:
     print("")
     try:
-        cmd = input("my ~ " + promptContainte).lower()
+        cmd = input("my ~ " + promptContainte)
 
     except KeyboardInterrupt:
         print("\n^C")
@@ -50,23 +50,26 @@ while True:
         cmd += next_line.strip()
 
     cmd = cmd.replace(";", "")
+    cmd_line = cmd.split(" ")[0].lower()
+    print(cmd_line)
 
-    if cmd == "clear":
+    if cmd_line == "clear":
         os.system("clear")
         continue
-    if cmd == "exit":
+    if cmd_line == "exit":
         readline.write_history_file(".history")
         print("Bye! It was my")
         exit()
 
-    if cmd.startswith("create_database ") or cmd.startswith("create_db "):
+    if cmd_line.startswith("create_database") or cmd_line.startswith("create_db"):
         dbName = ""
-        if cmd.startswith("create_database "):dbName = cmd[16:].strip()
+        if cmd_line.startswith("create_database"):dbName = cmd[16:].strip()
         else:dbName = cmd[9:].strip()
         db.create_DB(dbName)
 
-    elif cmd.startswith("use "):
-        useDatabase = cmd[4:].strip()
+    elif cmd_line.startswith("use_database") or cmd_line.startswith("use_db"):
+        if cmd_line.startswith("use_database"): useDatabase = cmd[12:].strip()
+        else:useDatabase = cmd[6:].strip()
         dirs = db.list_database(".database/")
         if useDatabase in dirs:
             print(f"database '{useDatabase}' used")
@@ -75,7 +78,7 @@ while True:
         else:
             print(f"database {useDatabase} doesn't exist")
 
-    elif cmd.startswith("create_table "):
+    elif cmd_line.startswith("create_table"):
         attribute1 = {}
         flags = False
         if isDbUse:
@@ -107,7 +110,7 @@ while True:
         else:
             print("no database used")
 
-    elif cmd.startswith("add_into_table "):
+    elif cmd_line.startswith("add_into_table"):
         if isDbUse == True:
             getRequests = cmd.split(" ")[1:]
             getRequest=" ".join(getRequests).strip()
@@ -137,9 +140,9 @@ while True:
 
         #db.insert_into("loop", {"mimi": 1})
 
-    elif cmd.startswith("drop_database ") or cmd.startswith("drop_db "):
+    elif cmd_line.startswith("drop_database") or cmd_line.startswith("drop_db"):
         databaseToRemove = ""
-        if cmd.startswith("drop_database "):
+        if cmd_line.startswith("drop_database "):
             databaseToRemove = cmd[13:].strip()
         else:
             databaseToRemove = cmd[7:].strip()
@@ -148,20 +151,20 @@ while True:
         else:
             db.drop_database(databaseToRemove)
 
-    elif cmd.startswith("leave_db") or cmd.startswith("leave_database"):
+    elif cmd_line.startswith("leave_db") or cmd_line.startswith("leave_database"):
         useDatabase = ""
         isDbUse = False
         promptContainte = f"[{userUsingDb}]\n¥⇒ "
 
-    elif cmd.startswith("drop_table "):
+    elif cmd_line.startswith("drop_table"):
         if isDbUse:
             tableToRemove = cmd[10:].strip()
             db.drop_table(useDatabase, tableToRemove)
 
-    elif cmd.startswith("list_database") or cmd.startswith("list_db"):
+    elif cmd_line.startswith("list_database") or cmd_line.startswith("list_db"):
         db.show_databases()
 
-    elif cmd.startswith("list_table"):
+    elif cmd_line.startswith("list_table"):
         if isDbUse:
             path = ".database/" + useDatabase.strip()
             tables = db.list_table(path)
