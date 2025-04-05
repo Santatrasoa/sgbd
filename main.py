@@ -2,7 +2,7 @@ import db
 import readline, os
 
 allType = ["Date", "Year", "Time", "Datetime", "Bool", "Number", "Float", "String", "Text", "Bit"]
-constraint = ["Not_null", "Unique", "Primary_key", "Foreign_key", "Check", "Default", "EAuto_increment"]
+constraints = ["Not_null", "Unique", "Primary_key", "Foreign_key", "Check", "Default", "Auto_increment"]
 db = db.Db()
 useDatabase = ""
 isDbUse = False
@@ -51,7 +51,6 @@ while True:
 
     cmd = cmd.replace(";", "")
     cmd_line = cmd.split(" ")[0].lower()
-    print(cmd_line)
 
     if cmd_line == "clear":
         os.system("clear")
@@ -79,8 +78,9 @@ while True:
             print(f"database {useDatabase} doesn't exist")
 
     elif cmd_line.startswith("create_table"):
-        attribute1 = {}
         flags = False
+        isConstraintTrue = False
+        attribute1 = {}
         getConstraint = {}
         if isDbUse:
             if "(" in cmd and cmd.count('(') == 1 and cmd.count(')') == 1:
@@ -95,7 +95,21 @@ while True:
                         getType = ""
                         if "[" in values[1]:
                             constraint = values[1].split('[')[1].replace(']', "").strip()
-                            getConstraint[values[0]] = constraint
+                            if constraint == "":
+                                constraint = "no_constraint"
+                            for con in constraints:
+                                c = constraint.split(' ')
+                                if len(c) > 1:
+                                    for i in c:
+                                        if i.strip().capitalize() == con.strip().capitalize() or constraint == "no_constraint":
+                                            isConstraintTrue = True
+                                            break
+                                else:
+                                    if constraint.strip().capitalize() != con.strip().capitalize() and constraint != "no_constraint":
+                                        isConstraintTrue = True
+                                        break
+                            if isConstraintTrue:
+                                getConstraint[values[0]] = constraint
                             getType = values[1].split('[')[0].strip().capitalize()
                         else:
                             getConstraint[values[0]] = "no constraint"
@@ -108,11 +122,13 @@ while True:
                                 break
                     if not flags:
                         print("!!! type error !!!")
+                    elif not isConstraintTrue:
+                        print("!!! constraint error !!!")
+
                     else:
                         attribute1["caracteristique"] = attribute
                         attribute1["constraint"] = getConstraint
                         attribute1["data"] = []
-                        print(getConstraint)
                         db.create_Table(useDatabase, name, attribute1)
                 else:
                     print("\n\033[31m!!! syntaxe error !!!\033[0m\n")
@@ -197,6 +213,15 @@ while True:
 
             else:
                 print(" empty table :(")
+        else:
+            print("no database selected")
+
+    elif cmd_line.startswith("describe_table"):
+        if isDbUse:
+            tableToDescribe = cmd[15:].strip()
+            path = ".database/" + useDatabase.strip()
+            pathToFile = path+'/'+tableToDescribe.strip()+".json"
+            db.describe_table(pathToFile)
         else:
             print("no database selected")
 

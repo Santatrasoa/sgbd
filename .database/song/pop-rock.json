@@ -1,0 +1,11 @@
+{
+    "caracteristique": {
+        "id": "Number[unique not_null]",
+        "singer": "String[]"
+    },
+    "constraint": {
+        "id": "unique not_null",
+        "singer": "no_constraint"
+    },
+    "data": []
+}

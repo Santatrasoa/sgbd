@@ -171,3 +171,14 @@ class Db :
                 pass
         else:
             print("Syntax Error")
+
+    def describe_table(self, path):
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                contentTable = json.load(f)
+            
+            print("Table description:")
+            for key, value in contentTable["caracteristique"].items():
+                print(f"{key}: {value} (Constraint: {contentTable.get('constraints', {}).get(key, 'None')})")
+        else:
+            print("Table does not exist")
