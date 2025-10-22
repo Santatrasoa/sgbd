@@ -1,0 +1,10 @@
+{
+    "users": [
+        {
+            "username": "diary",
+            "password": "12345",
+            "role": "user",
+            "created_at": "2025-10-22 21:52:15"
+        }
+    ]
+}

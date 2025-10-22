@@ -1,184 +1,296 @@
-import Action
-from pathlib import Path
 import os, shutil, json
+from pathlib import Path
 from datetime import datetime
 
-class Db :
+# -----------------------------
+# UserManager
+# -----------------------------
+class UserManager:
+    def __init__(self):
+        self.user_file_path = ".database/.users/users.json"
+        os.makedirs(".database/.users", exist_ok=True)
+        if not os.path.exists(self.user_file_path):
+            with open(self.user_file_path, "w") as f:
+                json.dump({"users": []}, f, indent=4)
+
+    def create_user(self, username, password, role="user"):
+        with open(self.user_file_path, "r") as f:
+            data = json.load(f)
+
+        for u in data["users"]:
+            if u["username"] == username:
+                print("user already exists")
+                return
+
+        new_user = {
+            "username": username,
+            "password": password,
+            "role": role,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        data["users"].append(new_user)
+        with open(self.user_file_path, "w") as f:
+            json.dump(data, f, indent=4)
+        print(f"user {username} created")
+
+    def list_users(self):
+        with open(self.user_file_path, "r") as f:
+            data = json.load(f)
+
+        users = data.get("users", [])
+        if not users:
+            print("no users found")
+            return
+
+        max_len = max(len(u["username"]) for u in users)
+        print("—" * (max_len + 30))
+        print("   list of users")
+        print("—" * (max_len + 30))
+        print(f"{'Username':<{max_len}} | Role | Created_at")
+        print("—" * (max_len + 30))
+        for u in users:
+            print(f"{u['username']:<{max_len}} | {u['role']} | {u['created_at']}")
+        print("—" * (max_len + 30))
+
+    def drop_user(self, username):
+        with open(self.user_file_path, "r") as f:
+            data = json.load(f)
+
+        new_users = [u for u in data["users"] if u["username"] != username]
+        if len(new_users) == len(data["users"]):
+            print("user not found")
+            return
+
+        data["users"] = new_users
+        with open(self.user_file_path, "w") as f:
+            json.dump(data, f, indent=4)
+        print(f"user {username} removed")
+
+    def use_user(self, username, password):
+        with open(self.user_file_path, "r") as f:
+            data = json.load(f)
+        for u in data["users"]:
+            if u["username"] == username and u["password"] == password:
+                print(f"user '{username}' logged in")
+                return u
+        print("invalid username or password")
+        return None
+
+# -----------------------------
+# PermissionManager
+# -----------------------------
+class PermissionManager:
+    def __init__(self):
+        self.perm_folder = ".database/.permissions"
+        os.makedirs(self.perm_folder, exist_ok=True)
+
+    def get_permission_file(self, db_name):
+        path = f".database/{db_name}/.permissions.json"
+        if not os.path.exists(path):
+            with open(path, "w") as f:
+                json.dump({}, f, indent=4)
+        return path
+
+    def grant(self, db_name, table, username, permission):
+        path = self.get_permission_file(db_name)
+        with open(path, "r") as f:
+            perms = json.load(f)
+
+        perms.setdefault(username, {"databases": [], "tables": {}})
+        if table == "*":
+            perms[username]["databases"].append(permission.upper())
+        else:
+            perms[username]["tables"].setdefault(table, [])
+            if permission.upper() not in perms[username]["tables"][table]:
+                perms[username]["tables"][table].append(permission.upper())
+
+        with open(path, "w") as f:
+            json.dump(perms, f, indent=4)
+        print(f"granted {permission} on {db_name}.{table} to {username}")
+
+    def revoke(self, db_name, table, username, permission):
+        path = self.get_permission_file(db_name)
+        with open(path, "r") as f:
+            perms = json.load(f)
+
+        if username in perms:
+            if table == "*":
+                if permission.upper() in perms[username].get("databases", []):
+                    perms[username]["databases"].remove(permission.upper())
+            else:
+                if permission.upper() in perms[username].get("tables", {}).get(table, []):
+                    perms[username]["tables"][table].remove(permission.upper())
+            with open(path, "w") as f:
+                json.dump(perms, f, indent=4)
+            print(f"revoked {permission} on {db_name}.{table} from {username}")
+        else:
+            print("user or permission not found")
+
+    def show_grants(self, db_name, username):
+        path = self.get_permission_file(db_name)
+        with open(path, "r") as f:
+            perms = json.load(f)
+
+        if username not in perms:
+            print(f"user {username} has no permissions on {db_name}")
+            return
+
+        user_perm = perms[username]
+        print(f"—" * 50)
+        print(f"Permissions for user \033[32m{username}\033[0m on database \033[34m{db_name}\033[0m")
+        print(f"—" * 50)
+
+        for t, perms_list in user_perm.get("tables", {}).items():
+            print(f"Table: {t} -> {', '.join(perms_list)}")
+
+        if "databases" in user_perm and user_perm["databases"]:
+            print(f"Database level -> {', '.join(user_perm['databases'])}")
+
+        print(f"—" * 50)
+
+# -----------------------------
+# Classe principale Db
+# -----------------------------
+class Db:
     def __init__(self):
         self.dbName = ""
+        self.userManager = UserManager()
+        self.permManager = PermissionManager()
+        self.current_user = {"username": "root", "role": "admin"}
 
+    # -----------------------------
+    # DATABASE
+    # -----------------------------
     def create_DB(self, dbName):
-        action = Action.Action(self.dbName)
-        dirs = self.list_database(".database/")
-        if dbName in dirs:
-            print("database already exist")
+        path = f".database/{dbName}"
+        if Path(path).exists():
+            print("database already exists")
         else:
-            action.creer_dossier(".database/"+dbName)
-    
-    def create_Table(self, dbName, name ,attribute):
-        files = self.list_table(".database/"+dbName.strip())
-        isTableFound = False
-        for i in files:
-            if name.strip() == i.split(".")[0].strip():
-                    isTableFound = True
-                    break
-        if isTableFound == False:
-            action = Action.Action(".database/"+self.dbName.strip())
-            action.creer_fichier(".database/"+dbName, name, attribute)
-        
-        else:
-            print(f"Table {name} already exist")
+            os.makedirs(path)
+            print(f"database {dbName} created")
 
-    def list_database(self,path):
+    def list_database(self, path):
         directory = Path(path)
         dirs = [item.name for item in directory.iterdir() if item.is_dir()]
         return dirs
-    
+
+    def drop_database(self, databaseName):
+        path = Path(f".database/{databaseName}")
+        if path.exists() and path.is_dir():
+            shutil.rmtree(path)
+            print(f"database {databaseName} removed")
+        else:
+            print("Database does not exist")
+
+    def show_databases(self):
+        allDirs = self.list_database(".database/")
+        l = max([len(d) for d in allDirs] + [8])
+        if allDirs:
+            print("—" * (l*2))
+            print(f"{'database':^{l*2}}")
+            print("—" * (l*2))
+            for i in allDirs:
+                print(f"{i:^{l*2}}")
+            print("—" * (l*2))
+        else:
+            print("empty :(")
+
+    # -----------------------------
+    # TABLES
+    # -----------------------------
     def list_table(self, tableName):
         directory = Path(tableName)
         dirs = [item.name for item in directory.iterdir() if item.is_file()]
         return dirs
 
-    def insert_into(self, table, data):
-        
-        pass
-
-    def select_into(self, table, colomn):
-        print("I work")
-
-    def drop_database(self, databaseName):
-        try:
-            directory = Path(".database/"+databaseName)
-            if directory.exists and directory.is_dir():
-                shutil.rmtree(directory)
-                print(f"database {databaseName} removed")
-            else:
-                print("Database does not exist")
-        except Exception as e:
-            print(f"can not remove this database ",e)
+    def create_Table(self, dbName, name ,attribute):
+        path = Path(f".database/{dbName}/{name}.json")
+        if path.exists():
+            print(f"Table {name} already exists")
+        else:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(attribute, f, indent=4)
+            print(f"Table {name} created")
 
     def drop_table(self, dbName, tableName):
-        a = ".database/"+dbName.strip()+"/"+tableName.strip()+".json"
-        file_path = Path(a)
-        if file_path.exists() and file_path.is_file():
-            file_path.unlink()  # Removes the file
+        path = Path(f".database/{dbName}/{tableName}.json")
+        if path.exists():
+            path.unlink()
             print(f"table {tableName} removed")
         else:
             print(f"table {tableName} does not exist")
 
-    def show_databases(self):
-        allDirs = self.list_database(".database/")
-        l = 9
-        for i in allDirs:
-            if l < len(i):
-                l = len(i)
-
-        if (len(allDirs) > 0):
-            print("", "—"*((l)*2), sep="")
-            print(" "*(int(l/2)),"database")
-            print("—"*(l*2),)
-
-            for i in allDirs:
-                print(" "*(int(l/2)),i)
-            print("—"*(l*2), "",sep="")
-        else:
-            print("empty :(")
-
     def analyse_data(self, path, data):
-        contentTable = {}
+        if not os.path.exists(path):
+            print("Table does not exist")
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            content = json.load(f)
         addedData = {}
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                contentTable = json.load(f)
-        
-        typeOfData = list(contentTable["caracteristique"].values())
-        nameOfData = list(contentTable["caracteristique"].keys())
-
-        if len(data) == len(typeOfData):
-            isSecondPartExist = True
-            verifyType = True
-            allDataThemeSame = True
-
-            for i in range(len(data)):
-                tmpData = data[i].split("=")
-                
-                # Vérification de la présence du '=' dans les données
-                if len(tmpData) != 2 or tmpData[1] == "":
-                    isSecondPartExist = False
-                    break
-
-                if nameOfData[i].strip() == tmpData[0].strip():
-                    # Validation selon le type de données
-                    if typeOfData[i] == "Number" and not tmpData[1].isdigit():
-                        verifyType = False
-                        break
-                    elif typeOfData[i] == "Float":
-                        try:
-                            float(tmpData[1])  # Vérification si c'est un float
-                        except ValueError:
-                            verifyType = False
-                            break
-                    elif typeOfData[i] == "Year" and (not tmpData[1].isdigit() or len(tmpData[1]) != 4):
-                        verifyType = False
-                        break
-                    elif typeOfData[i] == "Bool" and tmpData[1] not in ["True", "False"]:
-                        verifyType = False
-                        break
-                    elif typeOfData[i] == "Date":
-                        try:
-                            datetime.strptime(tmpData[1], "%Y/%m/%d")  # Date au format YYYY/MM/DD
-                        except ValueError:
-                            verifyType = False
-                            break
-                    elif typeOfData[i] == "Datetime":
-                        try:
-                            datetime.strptime(tmpData[1], "%Y/%m/%d %H:%M:%S")  # Datetime au format YYYY/MM/DD HH:MM:SS
-                        except ValueError:
-                            verifyType = False
-                            break
-                    elif typeOfData[i] == "Time":
-                        try:
-                            datetime.strptime(tmpData[1], "%H:%M:%S")  # Heure au format HH:MM:SS
-                        except ValueError:
-                            verifyType = False
-                            break
-                    elif typeOfData[i] == "String" and not tmpData[1]:  # String (non vide)
-                        verifyType = False
-                        break
-                    elif typeOfData[i] == "Text" and not tmpData[1]:  # Text (non vide, peut être long)
-                        verifyType = False
-                        break
-                    elif typeOfData[i] == "Bit" and tmpData[1] not in ["0", "1"]:
-                        verifyType = False
-                        break
-
-                    # Ajouter les données validées
-                    addedData[tmpData[0]] = tmpData[1]
-                else:
-                    allDataThemeSame = False
-                    break
-
-            if not allDataThemeSame or not isSecondPartExist or not verifyType:
-                print(allDataThemeSame)
-                print(isSecondPartExist)
-                print(verifyType)
-                print("Syntaxe error")
-            else:
-                contentTable["data"].append(addedData)
-                with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(contentTable, f, indent=4)
-                print("Data added")
-                pass
-        else:
-            print("Syntax Error")
+        for i, key in enumerate(content["caracteristique"]):
+            try:
+                k, v = data[i].split("=")
+                addedData[k.strip()] = v.strip()
+            except:
+                print("Syntax Error")
+                return
+        content["data"].append(addedData)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=4)
+        print("Data added")
 
     def describe_table(self, path):
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                contentTable = json.load(f)
-            
-            print("Table description:")
-            for key, value in contentTable["caracteristique"].items():
-                print(f"{key}: {value} (Constraint: {contentTable.get('constraints', {}).get(key, 'None')})")
-        else:
+        if not os.path.exists(path):
             print("Table does not exist")
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            content = json.load(f)
+        max_len = max(len(k) for k in content["caracteristique"])
+        print("—" * (max_len*2))
+        print(f"{'Table description':^{max_len*2}}")
+        print("—" * (max_len*2))
+        for k, v in content["caracteristique"].items():
+            constraint = content.get("constraint", {}).get(k, "None")
+            print(f"{k:<{max_len}} : {v} | Constraint: {constraint}")
+        print("—" * (max_len*2))
+
+    def show_help(self):
+            print("—" * 60)
+            print(f"{'COMMANDES DISPONIBLES':^60}")
+            print("—" * 60)
+
+            print("\n# DATABASE")
+            print(" create_database <name>       : Créer une nouvelle base de données")
+            print(" create_db <name>             : Alias pour create_database")
+            print(" drop_database <name>         : Supprimer une base de données")
+            print(" drop_db <name>               : Alias pour drop_database")
+            print(" use_database <name>          : Utiliser une base de données")
+            print(" use_db <name>                : Alias pour use_database")
+            print(" leave_database               : Quitter la base de données actuelle")
+            print(" leave_db                     : Alias pour leave_database")
+            print(" list_database                : Lister toutes les bases de données")
+            print(" list_db                      : Alias pour list_database")
+
+            print("\n# TABLES")
+            print(" create_table <name>(col:type[constraint], ...) : Créer une table")
+            print(" add_into_table <table>(col=value, ...)         : Ajouter des données")
+            print(" drop_table <name>                             : Supprimer une table")
+            print(" list_table                                    : Lister les tables de la BD utilisée")
+            print(" describe_table <table>                        : Décrire la table et ses colonnes")
+
+            print("\n# UTILISATEURS")
+            print(" create_user <name> password=<pwd> [role=<role>] : Créer un utilisateur")
+            print(" list_user                                        : Lister tous les utilisateurs")
+            print(" drop_user <name>                                 : Supprimer un utilisateur")
+            print(" use_user <name> password=<pwd>                  : Se connecter comme utilisateur")
+
+            print("\n# PERMISSIONS")
+            print(" grant <permission> on <table|*> to <user>      : Donner un droit")
+            print(" revoke <permission> on <table|*> from <user>   : Retirer un droit")
+            print(" show_grants <user>                              : Montrer les droits d'un utilisateur")
+
+            print("\n# AUTRES")
+            print(" clear                                           : Nettoyer l'écran")
+            print(" exit                                            : Quitter le SGBD")
+
+            print("—" * 60)

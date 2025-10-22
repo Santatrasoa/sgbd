@@ -1,0 +1,12 @@
+clear
+exit
+create_database or create_db
+use_databse or use_db
+leave_databse or leave_db
+create_table
+add_into_table
+drop_database or drop_db
+drop_table
+list_database or list_db
+list_table
+describe_table

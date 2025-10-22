@@ -1,51 +1,51 @@
-use_db song;
-create_table pop-rock(id:Number[unique not null]);
-create_table pop-rock(id:number[unique not null]);
-use_db song;
-create_table pop-rock(id:number[unique not null]);
-use_db song;
-create_table pop-rock(id:number[unique not null]);
-use_db song;
-create_table pop-rock(id:number[unique not null]);
-create_table pop-rock(id:number[unique not null], singer:string[not null]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[not null]);
-create_table pop-rock(id:number[unique not null], singer:string[]);
-create_table pop-rock(id:number[unique not null], singer:string);
+list_db;
+create_db Test;
+list_db;
+exit
 use song;
-describe_table jazz;
+use_database song;
+clear
+list_table;
+describe_table pop-rock;
+clear
+list_table;
+list_db;
+list_table;
+list_db;
+help
+;
+help
+;
+create_database mydb;
+list_database;
 list_db;
 use_db song;
-describe_table jazz;
-list_db;
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
+list_db
+;
+list_table;
+clear
+use_database f;
+use_database song;
+list_table;
+use_database song;
+list_table;
+describe_table pop-rock;
+use_database song;
+describe_table pop-rock;
+clear
+help
+;
+help
+;
+clear
+;
+help;
+clear
+;
+create_user diary;
+create_user diary password=12345; 
+;
+help;
+list_user;
 exit
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-exit
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not null], singer:string[]);
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
-use_db song;
-create_table pop-rock(id:number[unique not_null], singer:string[]);
+;
