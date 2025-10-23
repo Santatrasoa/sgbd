@@ -1,23 +1,35 @@
-import os, readline, json
+import os
+import readline
+import json
 from pathlib import Path
-from db_main import Db
+
+# Import depuis le package db
+from db.db_main import Db
 
 # -----------------------------
-# Initialisation
+# CONFIGURATION
 # -----------------------------
-db = Db()
+DB_PATH = ".database"
+DEFAULT_PROMPT = "m¥⇒"
+SEPARATOR = "—"
+
+# -----------------------------
+# INITIALISATION
+# -----------------------------
+db = Db()  # Instance de la classe principale
 useDatabase = ""
 isDbUse = False
-userUsingDb = f"user:\033[32m{db.current_user['username']}\033[0m"
-promptContainte = f"[{userUsingDb}]\nm¥⇒ "
+current_user = {"username": "root", "role": "admin"}
+userUsingDb = f"user:\033[32m{current_user['username']}\033[0m"
+promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
+
+if os.path.exists(".history"):
+    readline.read_history_file(".history")
 
 print("Welcome to my. We hope that you enjoy using our database")
 
-# Historique des commandes
-readline.read_history_file(".history") if os.path.exists(".history") else None
-
 # -----------------------------
-# Boucle principale
+# BOUCLE PRINCIPALE
 # -----------------------------
 while True:
     print("")
@@ -31,56 +43,56 @@ while True:
         print("\nBye! It was my")
         exit()
 
-    if not cmd.strip():
+    # Clear / Exit simple
+    if cmd.strip() in ["clear", "clear;"]:
+        os.system("clear")
         continue
+    if cmd.strip() in ["exit", "exit;"]:
+        readline.write_history_file(".history")
+        print("Bye! It was my")
+        exit()
 
-    # Gérer multi-lignes
-    while not cmd.strip().endswith(";"):
+    # Multi-lignes
+    while not cmd.endswith(";"):
         try:
             next_line = input(" ⇘ ")
         except KeyboardInterrupt:
             print("\n^C")
             break
         except EOFError:
-            readline.write_history_file(".history")
             print("\nBye! It was my")
+            readline.write_history_file(".history")
             exit()
         cmd += next_line.strip()
 
-    cmd = cmd.strip().rstrip(";")
+    cmd = cmd.replace(";", "")
     cmd_line = cmd.split(" ")[0].lower()
-
-    # -----------------------------
-    # COMMANDES DE BASE
-    # -----------------------------
-    if cmd_line in ["clear"]:
-        os.system("clear")
-        continue
-
-    if cmd_line in ["exit"]:
-        readline.write_history_file(".history")
-        print("Bye! It was my")
-        exit()
 
     # -----------------------------
     # DATABASE
     # -----------------------------
     if cmd_line.startswith("create_database") or cmd_line.startswith("create_db"):
-        dbName = cmd.split(" ")[1].strip()
+        dbName = cmd[16:].strip() if cmd_line.startswith("create_database") else cmd[9:].strip()
         db.create_DB(dbName)
 
     elif cmd_line.startswith("use_database") or cmd_line.startswith("use_db"):
-        useDatabase = cmd.split(" ")[1].strip()
-        dirs = db.list_database(".database/")
+        useDatabase = cmd[12:].strip() if cmd_line.startswith("use_database") else cmd[6:].strip()
+        dirs = db.list_database(DB_PATH)
         if useDatabase in dirs:
-            print(f"database '{useDatabase}' used")
-            promptContainte = f"[{userUsingDb} & db:\033[34m{useDatabase}\033[0m]\nm¥⇒ "
-            isDbUse = True
+            # check permission: admins/root can always use; otherwise require USAGE or ALL at database level
+            current_username = db.current_user.get("username")
+            role = db.current_user.get("role")
+            if role == "admin" or db.permManager.has_db_permission(useDatabase, current_username, "ALL") or db.permManager.has_db_permission(useDatabase, current_username, "USAGE"):
+                print(f"database '{useDatabase}' used")
+                promptContainte = f"[{userUsingDb} & db:\033[34m{useDatabase}\033[0m]\n{DEFAULT_PROMPT} "
+                isDbUse = True
+            else:
+                print(f"permission denied to use database '{useDatabase}' for user {current_username}")
         else:
             print(f"database {useDatabase} doesn't exist")
 
     elif cmd_line.startswith("drop_database") or cmd_line.startswith("drop_db"):
-        databaseToRemove = cmd.split(" ")[1].strip()
+        databaseToRemove = cmd[13:].strip() if cmd_line.startswith("drop_database") else cmd[7:].strip()
         if databaseToRemove == useDatabase:
             print("This database is in use.\ntype: \"leave db\" or choose another database")
         else:
@@ -89,7 +101,7 @@ while True:
     elif cmd_line.startswith("leave_db") or cmd_line.startswith("leave_database"):
         useDatabase = ""
         isDbUse = False
-        promptContainte = f"[{userUsingDb}]\n¥⇒ "
+        promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
 
     elif cmd_line.startswith("list_database") or cmd_line.startswith("list_db"):
         db.show_databases()
@@ -98,91 +110,123 @@ while True:
     # TABLES
     # -----------------------------
     elif cmd_line.startswith("create_table"):
-        if not isDbUse:
-            print("no database used")
-            continue
-        try:
-            name = cmd.split(" ")[1].split("(")[0]
-            data_str = cmd.split("(", 1)[1].rsplit(")", 1)[0]
-            data = [x.strip() for x in data_str.split(",")]
-
-            attr = {}
-            constr = {}
-            for val in data:
-                col, type_part = val.split(":")
-                attr[col.strip()] = type_part.split("[")[0].strip()
-                if "[" in type_part:
-                    constr[col.strip()] = type_part.split("[")[1].replace("]", "").strip()
+        if isDbUse:
+            try:
+                if "(" in cmd and ")" in cmd:
+                    name = cmd.split(" ")[1].split("(")[0]
+                    data = cmd.split('(')[1].replace(')', "").split(',')
+                    attr = {}
+                    constr = {}
+                    allType = ["Date", "Year", "Time", "Datetime", "Bool", "Number", "Float", "String", "Text", "Bit"]
+                    constraints = ["Not_null", "Unique", "Primary_key", "Foreign_key", "Check", "Default", "Auto_increment"]
+                    for val in data:
+                        parts = val.strip().split(":")
+                        col = parts[0].strip()
+                        t = parts[1].split('[')[0].capitalize().strip()
+                        if t not in allType:
+                            print(f"Unknown type '{t}'")
+                            break
+                        attr[col] = t
+                        if "[" in parts[1]:
+                            constr[col] = parts[1].split('[')[1].replace(']', '').strip()
+                        else:
+                            constr[col] = "no constraint"
+                    else:
+                        # check permission to create table
+                        current_username = db.current_user.get("username")
+                        role = db.current_user.get("role")
+                        if role == "admin" or db.permManager.has_db_permission(useDatabase, current_username, "ALL") or db.permManager.has_table_permission(useDatabase, name, current_username, "ALL"):
+                            table_def = {"caracteristique": attr, "constraint": constr, "data": []}
+                            db.create_Table(useDatabase, name, table_def)
+                        else:
+                            print(f"permission denied to create table '{name}' in database '{useDatabase}' for user {current_username}")
                 else:
-                    constr[col.strip()] = "no constraint"
-
-            table_def = {"caracteristique": attr, "constraint": constr, "data": []}
-            db.create_Table(useDatabase, name, table_def)
-        except Exception as e:
-            print("Syntaxe erreur:", e)
+                    print("!!! syntaxe error !!!")
+            except Exception as e:
+                print("error:", e)
+        else:
+            print("no database used")
 
     elif cmd_line.startswith("add_into_table"):
-        if not isDbUse:
+        if isDbUse:
+            try:
+                getData = " ".join(cmd.split(" ")[1:]).strip().split("(")
+                table_name = getData[0].strip()
+                values = getData[1].replace(")", "").split(",")
+                pathToFile = f"{DB_PATH}/{useDatabase}/{table_name}.json"
+                # permission check for INSERT / ALL
+                current_username = db.current_user.get("username")
+                role = db.current_user.get("role")
+                if role == "admin" or db.permManager.has_table_permission(useDatabase, table_name, current_username, "ALL") or db.permManager.has_table_permission(useDatabase, table_name, current_username, "INSERT"):
+                    db.analyse_data(pathToFile, values)
+                else:
+                    print(f"permission denied to add into table '{table_name}' for user {current_username}")
+            except Exception:
+                print("syntaxe error")
+        else:
             print("no database selected")
-            continue
-        try:
-            parts = cmd.split(" ", 1)[1]
-            table_name = parts.split("(")[0].strip()
-            values_str = parts.split("(", 1)[1].rsplit(")", 1)[0]
-            values = [x.strip() for x in values_str.split(",")]
-            pathToFile = f".database/{useDatabase}/{table_name}.json"
-            db.analyse_data(pathToFile, values)
-        except Exception:
-            print("Syntaxe error")
 
     elif cmd_line.startswith("drop_table"):
-        if not isDbUse:
-            print("no database selected")
-            continue
-        tableToRemove = cmd.split(" ")[1].strip()
-        db.drop_table(useDatabase, tableToRemove)
+        if isDbUse:
+            tableToRemove = cmd[10:].strip()
+            current_username = db.current_user.get("username")
+            role = db.current_user.get("role")
+            if role == "admin" or db.permManager.has_table_permission(useDatabase, tableToRemove, current_username, "ALL") or db.permManager.has_table_permission(useDatabase, tableToRemove, current_username, "DROP"):
+                db.drop_table(useDatabase, tableToRemove)
+            else:
+                print(f"permission denied to drop table '{tableToRemove}' for user {current_username}")
 
     elif cmd_line.startswith("list_table"):
-        if not isDbUse:
+        if isDbUse:
+            path = f"{DB_PATH}/{useDatabase}"
+            # if user is not admin and has no permission on the DB, deny listing
+            current_username = db.current_user.get("username")
+            role = db.current_user.get("role")
+            if role != "admin" and not db.permManager.user_has_any_permission(useDatabase, current_username):
+                print(f"permission denied to list tables in database '{useDatabase}' for user {current_username}")
+                continue
+            tables = db.list_table(path)
+            l = max([len(t) for t in tables] + [10])
+            print(SEPARATOR * (l*2))
+            print(f"{'list table in ' + useDatabase:^{l*2}}")
+            print(SEPARATOR * (l*2))
+            for t in tables:
+                print(f"{t.split('.')[0]:^{l*2}}")
+            print(SEPARATOR * (l*2))
+        else:
             print("no database selected")
-            continue
-        path = f".database/{useDatabase}"
-        tables = db.list_table(path)
-        l = max([len(t) for t in tables] + [10])
-        print("—" * (l*2))
-        print(f"{'list table in ' + useDatabase:^{l*2}}")
-        print("—" * (l*2))
-        for t in tables:
-            print(f"{t.split('.')[0]:^{l*2}}")
-        print("—" * (l*2))
 
     elif cmd_line.startswith("describe_table"):
-        if not isDbUse:
+        if isDbUse:
+            table_name = cmd[15:].strip()
+            pathToFile = f"{DB_PATH}/{useDatabase}/{table_name}.json"
+            current_username = db.current_user.get("username")
+            role = db.current_user.get("role")
+            if role == "admin" or db.permManager.has_table_permission(useDatabase, table_name, current_username, "ALL") or db.permManager.has_table_permission(useDatabase, table_name, current_username, "SELECT"):
+                db.describe_table(pathToFile)
+            else:
+                print(f"permission denied to describe table '{table_name}' for user {current_username}")
+        else:
             print("no database selected")
-            continue
-        table_name = cmd.split(" ")[1].strip()
-        pathToFile = f".database/{useDatabase}/{table_name}.json"
-        db.describe_table(pathToFile)
 
     # -----------------------------
     # USERS
     # -----------------------------
     elif cmd_line.startswith("create_user"):
-        try:
-            args = cmd.split(" ")
-            name = args[1]
-            pwd = [a.split("=")[1] for a in args if a.startswith("password=")][0]
-            role_list = [a.split("=")[1] for a in args if a.startswith("role=")]
-            role = role_list[0] if role_list else "user"
-            db.userManager.create_user(name, pwd, role)
-        except IndexError:
-            print("Syntaxe error: create_user <name> password=<pwd> [role=<role>]")
+        args = cmd.split(" ")
+        name = args[1]
+        password = [a for a in args if a.startswith("password=")]
+        role = [a for a in args if a.startswith("role=")]
+        if not password: print("password required"); continue
+        pwd = password[0].split("=")[1]
+        rl = role[0].split("=")[1] if role else "user"
+        db.userManager.create_user(name, pwd, rl)
 
     elif cmd_line.startswith("list_user"):
         db.userManager.list_users()
 
     elif cmd_line.startswith("drop_user"):
-        db.userManager.drop_user(cmd.split(" ")[1].strip())
+        db.userManager.drop_user(cmd.split(" ")[1])
 
     elif cmd_line.startswith("use_user"):
         try:
@@ -193,104 +237,150 @@ while True:
             if user:
                 db.current_user = user
                 userUsingDb = f"user:\033[32m{name}\033[0m"
-                promptContainte = f"[{userUsingDb}]\nm¥⇒ "
+                promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
         except:
-            print("Syntaxe error: use_user <username> password=<pwd>")
+            print("syntax error, use: use_user <username> password=<pwd>;")
 
     # -----------------------------
     # PERMISSIONS
     # -----------------------------
     elif cmd_line.startswith("grant"):
         try:
-            parts = cmd.split(" ")
+            parts = cmd.split()
             permission = parts[1]
             on_index = parts.index("on")
             to_index = parts.index("to")
-            target = parts[on_index + 1]
+            raw_target = parts[on_index + 1]
             username = parts[to_index + 1]
-            db.permManager.grant(useDatabase, target, username, permission)
-        except:
-            print("Syntaxe: grant <permission> on <table|*> to <user>")
+        except (ValueError, IndexError):
+            print("syntax error for grant: use `grant <PERM> on <table|db.table|*> to <user>`")
+            continue
+
+        # allow qualified target: db.table or db.*
+        if "." in raw_target:
+            db_name, target = raw_target.split(".", 1)
+        else:
+            db_name = useDatabase
+            target = raw_target
+
+        if not db_name:
+            print("no database selected and no database qualified in grant target")
+            continue
+
+        caller_username = db.current_user.get("username")
+        caller_role = db.current_user.get("role")
+        db.permManager.grant(db_name, target, username, permission, caller_username=caller_username, caller_role=caller_role)
 
     elif cmd_line.startswith("revoke"):
         try:
-            parts = cmd.split(" ")
+            parts = cmd.split()
             permission = parts[1]
             on_index = parts.index("on")
             from_index = parts.index("from")
-            target = parts[on_index + 1]
+            raw_target = parts[on_index + 1]
             username = parts[from_index + 1]
-            db.permManager.revoke(useDatabase, target, username, permission)
-        except:
-            print("Syntaxe: revoke <permission> on <table|*> from <user>")
+        except (ValueError, IndexError):
+            print("syntax error for revoke: use `revoke <PERM> on <table|db.table|*> from <user>`")
+            continue
+
+        if "." in raw_target:
+            db_name, target = raw_target.split(".", 1)
+        else:
+            db_name = useDatabase
+            target = raw_target
+
+        if not db_name:
+            print("no database selected and no database qualified in revoke target")
+            continue
+
+        caller_username = db.current_user.get("username")
+        caller_role = db.current_user.get("role")
+        db.permManager.revoke(db_name, target, username, permission, caller_username=caller_username, caller_role=caller_role)
 
     elif cmd_line.startswith("show_grants"):
-        try:
-            username = cmd.split(" ")[1]
-            db.permManager.show_grants(useDatabase, username)
-        except:
-            print("Syntaxe: show_grants <user>")
+        parts = cmd.split()
+        # allow: show_grants <user>   or   show_grants <db> <user>
+        if len(parts) == 2:
+            username = parts[1]
+            db_name = useDatabase
+        elif len(parts) == 3:
+            db_name = parts[1]
+            username = parts[2]
+        else:
+            print("syntax: show_grants <user>  OR  show_grants <db> <user>")
+            continue
 
-    elif cmd_line.startswith("help"):
-        db.show_help()
+        if not db_name:
+            print("no database selected and no database specified for show_grants")
+            continue
+
+        db.permManager.show_grants(db_name, username)
 
     # -----------------------------
     # SELECT
     # -----------------------------
     elif cmd_line.startswith("select"):
-        if not isDbUse:
-            print("no database selected")
-            continue
-        # Déjà intégré dans ton code précédent
-        try:
-            parts = cmd.split(" ", 1)[1]
-            from_index = parts.lower().find("from")
-            if from_index == -1:
-                print("Syntaxe error: select * from <table> [where col=value];")
+        if isDbUse:
+            getRequests = " ".join(cmd.split(" ")[1:]).strip()
+            if len(getRequests) == 0:
+                print("syntaxe error")
                 continue
-            columns_part = parts[:from_index].strip()
-            rest = parts[from_index+4:].strip()
-            if "where" in rest.lower():
-                table_name = rest.lower().split("where")[0].strip()
-                where_clause = rest.lower().split("where")[1].strip()
-            else:
-                table_name = rest.strip()
+            parts = getRequests.split()
+            if len(parts) >= 3 and parts[1].lower() == "from":
+                columns_part = parts[0]
+                table_name = parts[2]
                 where_clause = None
-            path = f".database/{useDatabase}/{table_name}.json"
-            if not os.path.exists(path):
-                print(f"table '{table_name}' does not exist")
-                continue
-            with open(path, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            rows = content.get("data", [])
-            all_columns = list(content.get("caracteristique", {}).keys())
-            # Colonnes sélectionnées
-            if columns_part == "*":
-                selected_columns = all_columns
+                if "where" in [p.lower() for p in parts]:
+                    where_index = [p.lower() for p in parts].index("where")
+                    if len(parts) > where_index + 1:
+                        where_clause = " ".join(parts[where_index + 1:])
+                    else:
+                        print("syntaxe error after WHERE")
+                        continue
+                path = f"{DB_PATH}/{useDatabase}/{table_name}.json"
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = json.load(f)
+                    all_rows = content.get("data", [])
+                    all_columns = list(content.get("caracteristique", {}).keys())
+                    normalized_rows = []
+                    for row in all_rows:
+                        clean_row = {}
+                        for k, v in row.items():
+                            clean_row[k.strip()] = str(v).strip().strip('"')
+                        normalized_rows.append(clean_row)
+                    all_rows = normalized_rows
+                    selected_columns = all_columns if columns_part == "*" else [c.strip() for c in columns_part.split(",")]
+                    filtered_rows = all_rows
+                    if where_clause:
+                        try:
+                            left, right = where_clause.split("=")
+                            left = left.strip()
+                            right = right.strip().strip("'").strip('"')
+                            filtered_rows = [row for row in all_rows if str(row.get(left, "")) == right]
+                        except ValueError:
+                            print("Syntaxe WHERE invalide — use: where col = value")
+                            continue
+                    if len(filtered_rows) == 0:
+                        print("No data found")
+                    else:
+                        col_widths = {col: max(len(col), max((len(str(row.get(col, ""))) for row in filtered_rows), default=0)) for col in selected_columns}
+                        total_width = sum(col_widths.values()) + (len(selected_columns) * 3) + 1
+                        print(SEPARATOR * total_width)
+                        print(" | ".join(col.ljust(col_widths[col]) for col in selected_columns))
+                        print(SEPARATOR * total_width)
+                        for row in filtered_rows:
+                            print(" | ".join(str(row.get(col, "")).ljust(col_widths[col]) for col in selected_columns))
+                        print(SEPARATOR * total_width)
+                else:
+                    print(f"table '{table_name}' does not exist")
             else:
-                selected_columns = [c.strip() for c in columns_part.split(",")]
-            # WHERE
-            if where_clause:
-                try:
-                    left, right = [x.strip() for x in where_clause.split("=")]
-                    rows = [row for row in rows if str(row.get(left, "")).strip('"') == right.strip('"')]
-                except:
-                    print("Syntaxe WHERE invalide")
-                    continue
-            if not rows:
-                print("No data found")
-                continue
-            # Affichage
-            col_widths = {col: max(len(col), max(len(str(row.get(col, ""))) for row in rows)) for col in selected_columns}
-            total_width = sum(col_widths.values()) + 3 * len(selected_columns) + 1
-            print("—" * total_width)
-            print(" | ".join(col.ljust(col_widths[col]) for col in selected_columns))
-            print("—" * total_width)
-            for row in rows:
-                print(" | ".join(str(row.get(col, "")).strip('"').ljust(col_widths[col]) for col in selected_columns))
-            print("—" * total_width)
-        except:
-            print("Syntaxe error: select * from <table> [where col=value];")
+                print("syntaxe error — use: select * from <table> [where col = value]")
+        else:
+            print("no database selected")
 
-    else:
-        print("Unknown command — type 'help' for command list")
+    # -----------------------------
+    # HELP
+    # -----------------------------
+    elif cmd_line.startswith("help"):
+        db.show_help()

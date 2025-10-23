@@ -6,8 +6,9 @@ from .permission_manager import PermissionManager
 class Db:
     def __init__(self):
         self.dbName = ""
-        self.userManager = UserManager()
-        self.permManager = PermissionManager()
+        self.dbPath = ".database"
+        self.userManager = UserManager(self.dbPath)
+        self.permManager = PermissionManager(self.dbPath)
         self.current_user = {"username": "root", "role": "admin"}
 
     def create_DB(self, dbName):
@@ -17,7 +18,9 @@ class Db:
         else:
             os.makedirs(path)
             print(f"database {dbName} created")
-            self.permManager.grant(dbName, "*", self.current_user["username"], "ALL")
+            # when creating a DB, set the creator as owner and give them ALL
+            self.permManager.set_owner(dbName, self.current_user["username"])
+            self.permManager.grant(dbName, "*", self.current_user["username"], "ALL", caller_username=self.current_user.get("username"), caller_role=self.current_user.get("role"))
 
     def list_database(self, path):
         directory = Path(path)
@@ -58,7 +61,9 @@ class Db:
         else:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(attribute, f, indent=4)
-            self.permManager.grant(dbName, name, self.current_user["username"], "ALL")
+            # table creator becomes owner at table-level by granting ALL to them
+            # owner for database remains the same; permission manager treats db owner specially
+            self.permManager.grant(dbName, name, self.current_user["username"], "ALL", caller_username=self.current_user.get("username"), caller_role=self.current_user.get("role"))
             print(f"Table {name} created")
 
     def drop_table(self, dbName, tableName):

@@ -141,3 +141,65 @@ select * from firstTable;
 clear
 help;
 exit
+clear
+exit
+list_db;
+drop_database My;
+c;ear
+;
+clear
+list_db;
+list_db;l
+;
+clear
+create_database My;
+drop_user Diary;
+list_user;
+create_user Diary ;
+create_user Diary password=123456;
+list_user;
+use_user Diary;
+use_user Diary password=123456;
+clear
+list_db;
+use_db My;
+use_user root;
+use_user root password=root;
+use_user root password=;
+clear
+use_user root password=;
+use_user root password;
+use_user root password=;
+clear
+help;
+list_database;
+create_database my_db;
+use_user test password=;
+use_db my_db;
+use_user Diary password=12345678;
+use_user Diary password=123456;
+use_database my_db;
+grant READ on my_db to Diary;
+use_database my_db;
+clear
+list_user;
+list_database;
+use_database;
+use_database My;
+grant READ on My to Diary;
+use_user Diary;
+use_user Diary password=123456;
+use_db My;
+clear
+exit
+help;
+show_grants Diary;
+grant READ on My to Diary;
+use_database My;
+grant READ on My to Diary;
+leave_db
+;
+clear
+use_db My;
+use_db my_db;
+exit

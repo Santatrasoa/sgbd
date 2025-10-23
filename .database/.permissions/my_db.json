@@ -8,8 +8,8 @@
     "Diary": {
         "databases": [],
         "tables": {
-            "firstTable": [
-                "ALL"
+            "my_db": [
+                "READ"
             ]
         }
     }
