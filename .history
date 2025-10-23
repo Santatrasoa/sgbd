@@ -49,3 +49,95 @@ help;
 list_user;
 exit
 ;
+list_user;
+use_user diary;
+use_user diary password=12345;
+list_database;
+use_database song;
+clear
+;
+help;
+list_database;
+grant r on pop-rock to diary;
+grant rfef on pop-rock to diary;
+clear
+;
+clear
+'
+;
+clear;
+list_user;
+exit
+;
+use_database song;
+list_table;
+list_database;
+clear
+;
+clear
+;
+clear
+hejp;
+help;
+select * from son;
+use_database song;
+clear
+select * from pop-rock;
+select singer from pop-rock;
+use_db song;
+select * from pop-rock;
+select * from pop-rock where id=2;
+select * from pop-rock where id=1;
+select * from pop-rock where id=2;
+select * from pop-rock where id=3;
+clear
+use_db song;
+select * from pop-rock where id=3;
+select singer from pop-rock where id=3;
+list_db;
+clear
+list_database;
+help;
+add_into_table pop-rock(id=2,singer=green);
+select * from pop-rock;
+clear
+help;
+creAtE_tABle reggae(id:number[not null], singer:string[not null]);
+select * from reggae;
+add_into_table 
+;
+add_into_table reggae(id=1, singer=Bob Marley);
+select * from reggae;
+create_database test;
+create_database Test;
+use_database Test;
+clear
+exit
+help;
+use_db song;
+grant usen on reggae to diary;
+use_user diary;
+use_user diary password=12345;
+use_db song;
+select * from reggea;
+select * from reggae;
+exit
+list_user;
+clear
+use_user diary password=12345;
+use_db song;
+select * from pop-rock;
+exit
+use_db song;
+exit
+list_database;
+use_database My;
+select * from
+ds
+sf
+;
+list_table;
+select * from firstTable;
+clear
+help;
+exit

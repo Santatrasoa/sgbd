@@ -1,0 +1,16 @@
+{
+    "root": {
+        "databases": [
+            "ALL"
+        ],
+        "tables": {}
+    },
+    "Diary": {
+        "databases": [],
+        "tables": {
+            "firstTable": [
+                "ALL"
+            ]
+        }
+    }
+}

@@ -1,0 +1,7 @@
+{
+  "db_path": ".database",
+  "default_user": "root",
+  "default_prompt": "m¥⇒",
+  "max_file_size_mb": 10,
+  "separator_char": "—"
+}
