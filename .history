@@ -203,3 +203,5 @@ clear
 use_db My;
 use_db my_db;
 exit
+clear
+exit

@@ -4,15 +4,15 @@ from .user_manager import UserManager
 from .permission_manager import PermissionManager
 
 class Db:
-    def __init__(self):
+    def __init__(self, db_path: str = ".database"):
         self.dbName = ""
-        self.dbPath = ".database"
+        self.dbPath = db_path
         self.userManager = UserManager(self.dbPath)
         self.permManager = PermissionManager(self.dbPath)
         self.current_user = {"username": "root", "role": "admin"}
 
     def create_DB(self, dbName):
-        path = f".database/{dbName}"
+        path = f"{self.dbPath}/{dbName}"
         if Path(path).exists():
             print("database already exists")
         else:
@@ -55,7 +55,7 @@ class Db:
         return [item.name for item in directory.iterdir() if item.is_file() and not item.name.startswith(".")]
 
     def create_Table(self, dbName, name ,attribute):
-        path = Path(f".database/{dbName}/{name}.json")
+        path = Path(f"{self.dbPath}/{dbName}/{name}.json")
         if path.exists():
             print(f"Table {name} already exists")
         else:
@@ -67,7 +67,7 @@ class Db:
             print(f"Table {name} created")
 
     def drop_table(self, dbName, tableName):
-        path = Path(f".database/{dbName}/{tableName}.json")
+        path = Path(f"{self.dbPath}/{dbName}/{tableName}.json")
         if path.exists():
             path.unlink()
             print(f"table {tableName} removed")

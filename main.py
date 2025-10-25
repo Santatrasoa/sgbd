@@ -5,18 +5,20 @@ from pathlib import Path
 
 # Import depuis le package db
 from db.db_main import Db
+from utils import load_config
 
 # -----------------------------
 # CONFIGURATION
 # -----------------------------
-DB_PATH = ".database"
-DEFAULT_PROMPT = "m¥⇒"
-SEPARATOR = "—"
+config = load_config()
+DB_PATH = config.get("db_path", ".database")
+DEFAULT_PROMPT = config.get("default_prompt", "m¥⇒")
+SEPARATOR = config.get("separator_char", "—")
 
 # -----------------------------
 # INITIALISATION
 # -----------------------------
-db = Db()  # Instance de la classe principale
+db = Db(DB_PATH)  # Instance de la classe principale
 useDatabase = ""
 isDbUse = False
 current_user = {"username": "root", "role": "admin"}
