@@ -1,0 +1,9 @@
+{
+    "__owner__": "Diary",
+    "Diary": {
+        "databases": [
+            "ALL"
+        ],
+        "tables": {}
+    }
+}

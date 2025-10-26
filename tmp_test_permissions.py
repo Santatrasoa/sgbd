@@ -11,7 +11,7 @@ d.create_DB('testdb')
 print('create user alice')
 d.userManager.create_user('alice','pass')
 # simulate login as alice
-alice = d.userManager.use_user('alice','pass')
+alice = d.userManager.switch_user_to('alice','pass')
 print('alice:', alice)
 # attempt to use database as alice without any grants
 if alice:

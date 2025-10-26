@@ -68,7 +68,7 @@ class UserManager:
             json.dump(data, f, indent=4)
         print(f"user {username} removed")
 
-    def use_user(self, username, password):
+    def switch_user_to(self, username, password):
         with open(self.user_file_path, "r") as f:
             data = json.load(f)
         for u in data["users"]:

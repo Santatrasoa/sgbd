@@ -138,7 +138,7 @@ class Db:
         print(" create_user <name> password=<pwd> [role=<role>] : Créer un utilisateur")
         print(" list_user                                        : Lister tous les utilisateurs")
         print(" drop_user <name>                                 : Supprimer un utilisateur")
-        print(" use_user <name> password=<pwd>                  : Se connecter comme utilisateur")
+        print(" switch_user_to <name> password=<pwd>                  : Se connecter comme utilisateur")
 
         print("\n# PERMISSIONS")
         print(" grant <permission> on <table|*> to <user>      : Donner un droit")

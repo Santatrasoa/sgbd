@@ -3,7 +3,11 @@
         "databases": [
             "ALL"
         ],
-        "tables": {}
+        "tables": {
+            "my_table": [
+                "ALL"
+            ]
+        }
     },
     "Diary": {
         "databases": [],

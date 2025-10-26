@@ -188,13 +188,16 @@ while True:
                 print(f"permission denied to list tables in database '{useDatabase}' for user {current_username}")
                 continue
             tables = db.list_table(path)
-            l = max([len(t) for t in tables] + [10])
-            print(SEPARATOR * (l*2))
-            print(f"{'list table in ' + useDatabase:^{l*2}}")
-            print(SEPARATOR * (l*2))
-            for t in tables:
-                print(f"{t.split('.')[0]:^{l*2}}")
-            print(SEPARATOR * (l*2))
+            if len(tables) == 0:
+                print("No table found in this database")
+            else:
+                l = max([len(t) for t in tables] + [10])
+                print(SEPARATOR * (l*2))
+                print(f"{'list table in ' + useDatabase:^{l*2}}")
+                print(SEPARATOR * (l*2))
+                for t in tables:
+                    print(f"{t.split('.')[0]:^{l*2}}")
+                print(SEPARATOR * (l*2))
         else:
             print("no database selected")
 
@@ -230,18 +233,18 @@ while True:
     elif cmd_line.startswith("drop_user"):
         db.userManager.drop_user(cmd.split(" ")[1])
 
-    elif cmd_line.startswith("use_user"):
+    elif cmd_line.startswith("switch_user_to"):
         try:
             args = cmd.split(" ")
             name = args[1]
             pwd = args[2].split("=")[1]
-            user = db.userManager.use_user(name, pwd)
+            user = db.userManager.switch_user_to(name, pwd)
             if user:
                 db.current_user = user
                 userUsingDb = f"user:\033[32m{name}\033[0m"
                 promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
         except:
-            print("syntax error, use: use_user <username> password=<pwd>;")
+            print("syntax error, use: switch_user_to <username> password=<pwd>;")
 
     # -----------------------------
     # PERMISSIONS
@@ -386,3 +389,6 @@ while True:
     # -----------------------------
     elif cmd_line.startswith("help"):
         db.show_help()
+
+    else:
+        print("command not found")

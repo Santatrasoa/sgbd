@@ -205,3 +205,59 @@ use_db my_db;
 exit
 clear
 exit
+list_db;
+use_database my_db;
+switch_user_to diary password=13456;
+switch_user_to diary password=1345678;
+switch_user_to diary password=12345678;
+switch_user_to diary password=123456;
+switch_user_to Diary password=123456;
+switch_user_to root password=123456;
+switch_user_to root password=12345678;
+clear
+use_database my_db;
+list_db;
+list_table;
+create_table 
+;
+help
+;
+create_table my_table(id:int[not null], test:string[not null]);
+create_table my_table(id:Number[not null], test:string[not null]);
+create_table my_tables(id:Number[not null, nf], test:string[not null]);
+create_table my_tables(id:Number[not null, unique], test:string[not null]);
+switch_user_to Diary password=123456;
+use_db my_db;
+create_db test;
+use_db test;
+switch_user_to root;
+switch_user_to root password=123456;
+switch_user_to root password=12345678;
+use_db test;
+exit
+dsg
+s;
+m[rmg rjwe
+;
+clear
+exit
+dsjg ewt;
+clear
+list_table;
+use_database my;
+use_database My;
+clear
+list_table;
+ls
+l
+;
+clea
+r
+;
+clear
+exit
+list_database;
+use_database test;
+list_table;
+clear
+exit

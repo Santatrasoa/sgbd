@@ -1,0 +1,11 @@
+{
+    "caracteristique": {
+        "id": "Number",
+        "test": "String"
+    },
+    "constraint": {
+        "id": "not null",
+        "test": "not null"
+    },
+    "data": []
+}
