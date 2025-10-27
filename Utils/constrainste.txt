@@ -1,0 +1,7 @@
+Not_null
+Unique
+Primary_key
+Foreign_key
+Check
+Default
+Auto_increment

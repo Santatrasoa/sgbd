@@ -3,11 +3,32 @@
         "databases": [
             "ALL"
         ],
-        "tables": {}
+        "tables": {
+            "Test_My": [
+                "ALL"
+            ],
+            "Test_My_1": [
+                "ALL"
+            ]
+        }
     },
     "Diary": {
-        "databases": [],
+        "databases": [
+            "Test"
+        ],
         "tables": {
+            "My": [
+                "READ"
+            ]
+        }
+    },
+    "test": {
+        "My": {
+            "tables": {
+                "My": [
+                    "READ"
+                ]
+            },
             "My": [
                 "READ"
             ]

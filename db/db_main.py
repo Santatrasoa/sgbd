@@ -100,7 +100,7 @@ class Db:
         with open(path, "r", encoding="utf-8") as f:
             content = json.load(f)
         max_len = max(len(k) for k in content["caracteristique"])
-        print("—" * (max_len*2))
+        print("—" * (max_len))
         print(f"{'Table description':^{max_len*2}}")
         print("—" * (max_len*2))
         for k, v in content["caracteristique"].items():

@@ -1,0 +1,25 @@
+{
+    "caracteristique": {
+        "id": "Number",
+        "nom": "String",
+        "age": "Number",
+        "actif": "Bool"
+    },
+    "constraint": {
+        "id": [
+            "Not_null",
+            "Unique",
+            "Primary_key"
+        ],
+        "nom": [
+            "Not_null"
+        ],
+        "age": [
+            "no constraint"
+        ],
+        "actif": [
+            "no constraint"
+        ]
+    },
+    "data": []
+}

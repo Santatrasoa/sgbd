@@ -261,3 +261,59 @@ use_database test;
 list_table;
 clear
 exit
+use_database My;
+create_table Test_My(id:Number[not null, unique, primary key]);
+clear
+use_database My;
+create_table Test_My(id:Number[not null, unique, primary key]);
+use_database My;
+create_table Test_My(id:Number[not null, unique, primary key]);
+create_table Test_My(id:Number[not null unique primary key]);
+create_table Test_My(id:Numbr[not_null, unique, primary_key]);
+create_table Test_My(id:Number[not_null, unique, primary_key]);
+clear
+exit
+use_database My;
+create_table Test_My(id:Number[not_null, unique, primary_key]);
+create_table Test_My(id:Number[not_null, Unique, primary_key]);
+create_table Test_My(id:Number[not_null, primary_key]);
+create_table Test_My(id:Number[not_null,primary_key]);
+create_table Test_My(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number, actif:Bool)
+;
+clear
+use_database My;
+create_table Test_My(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number, actif:Bool);
+create_table Test_My_1(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number, actif:Bool);
+exit
+use_database My;
+create_table Test_My_1(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number, actif:Bool);
+create_table Test_My(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number, actif:Bool);
+create_table Test_My(id:Number[Not_null, Unique, Primary_key], nom:String[Not_null], age:Number);
+list_table;
+describe_table Test_My;
+describe_table Test_My_1;
+use_database My;
+describe_table Test_My;
+clear
+leave_dbl
+l
+;
+leave_db;
+clear
+list_db;
+list_user;
+help;
+grant READ on My to test;
+use_db My;
+grant READ on My to test;
+switch_user_to test password=;
+use_db My;
+;
+use_db My_db;
+use_db My;
+exit
+use_db My;
+switch_user_to test password=;
+use_db My;
+clear
+exit

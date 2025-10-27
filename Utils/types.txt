@@ -1,0 +1,10 @@
+date
+year
+time
+datetime
+bool
+number
+float
+string
+text
+bit

@@ -15,3 +15,10 @@ def load_config():
         with open("config.json") as f:
             return json.load(f)
     return {}
+
+
+def getAllType(_path):
+    if os.path.exists(_path):
+        with open(_path, 'r', encoding='utf-8') as f:
+            
+            return

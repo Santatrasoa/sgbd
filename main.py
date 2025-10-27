@@ -84,7 +84,7 @@ while True:
             # check permission: admins/root can always use; otherwise require USAGE or ALL at database level
             current_username = db.current_user.get("username")
             role = db.current_user.get("role")
-            if role == "admin" or db.permManager.has_db_permission(useDatabase, current_username, "ALL") or db.permManager.has_db_permission(useDatabase, current_username, "USAGE"):
+            if role == "admin" or db.permManager.has_permission(useDatabase, "", current_username, "READ") or db.permManager.has_permission(useDatabase, "",current_username, "USAGE"):
                 print(f"database '{useDatabase}' used")
                 promptContainte = f"[{userUsingDb} & db:\033[34m{useDatabase}\033[0m]\n{DEFAULT_PROMPT} "
                 isDbUse = True
@@ -111,44 +111,142 @@ while True:
     # -----------------------------
     # TABLES
     # -----------------------------
+    
     elif cmd_line.startswith("create_table"):
         if isDbUse:
             try:
+                # Vérifier présence des parenthèses
                 if "(" in cmd and ")" in cmd:
-                    name = cmd.split(" ")[1].split("(")[0]
-                    data = cmd.split('(')[1].replace(')', "").split(',')
+                    # Extraction du nom de table (supporte create_table Name(...))
+                    name = cmd.split(" ")[1].split("(")[0].strip()
+
+                    # Extraire la portion entre la première '(' et la dernière ')'
+                    inside = cmd[cmd.find("(") + 1: cmd.rfind(")")]
+                    # retirer un ; final si présent
+                    inside = inside.rstrip().rstrip(';').strip()
+
+                    # Fonction utilitaire : split au top-level par ',' en ignorant les ',' dans [...]
+                    def split_top_level_commas(s: str):
+                        parts = []
+                        cur = []
+                        depth = 0
+                        for ch in s:
+                            if ch == '[':
+                                depth += 1
+                                cur.append(ch)
+                            elif ch == ']':
+                                depth = max(depth - 1, 0)
+                                cur.append(ch)
+                            elif ch == ',' and depth == 0:
+                                fragment = ''.join(cur).strip()
+                                if fragment:
+                                    parts.append(fragment)
+                                cur = []
+                            else:
+                                cur.append(ch)
+                        last = ''.join(cur).strip()
+                        if last:
+                            parts.append(last)
+                        return parts
+
+                    columns = split_top_level_commas(inside)
+
                     attr = {}
                     constr = {}
-                    allType = ["Date", "Year", "Time", "Datetime", "Bool", "Number", "Float", "String", "Text", "Bit"]
-                    constraints = ["Not_null", "Unique", "Primary_key", "Foreign_key", "Check", "Default", "Auto_increment"]
-                    for val in data:
-                        parts = val.strip().split(":")
-                        col = parts[0].strip()
-                        t = parts[1].split('[')[0].capitalize().strip()
-                        if t not in allType:
-                            print(f"Unknown type '{t}'")
+
+                    # Types et contraintes autorisés (on les utilise en minuscule pour normaliser)
+                    allType = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
+                    constraints_allowed = {
+                        "not_null": "Not_null",
+                        "unique": "Unique",
+                        "primary_key": "Primary_key",
+                        "foreign_key": "Foreign_key",
+                        "check": "Check",
+                        "default": "Default",
+                        "auto_increment": "Auto_increment"
+                    }
+
+                    # Parcours des définitions de colonnes
+                    for val in columns:
+                        val = val.strip()
+                        if not val:
+                            continue
+
+                        # Vérifie la syntaxe nom:type...
+                        if ":" not in val:
+                            print(f"❌ Syntax error in '{val}' — expected format: name:type[constraint,...]")
                             break
-                        attr[col] = t
-                        if "[" in parts[1]:
-                            constr[col] = parts[1].split('[')[1].replace(']', '').strip()
+
+                        parts = val.split(":", 1)
+                        col = parts[0].strip()
+                        type_and_constraints = parts[1].strip()
+
+                        # Extraire type et contraintes (si présentes)
+                        if "[" in type_and_constraints and type_and_constraints.endswith("]"):
+                            type_part = type_and_constraints.split("[", 1)[0].strip()
+                            constraint_part = type_and_constraints[type_and_constraints.find("[") + 1:-1].strip()
+                            # split des contraintes par ',' (ici les virgules sont OK car déjà hors split_top_level_commas)
+                            raw_constraints = [c.strip() for c in constraint_part.split(",") if c.strip()]
+                        elif "[" in type_and_constraints and "]" in type_and_constraints:
+                            # Gestion robuste si plusieurs [ ] mal positionnés
+                            type_part = type_and_constraints.split("[", 1)[0].strip()
+                            constraint_part = type_and_constraints[type_and_constraints.find("[") + 1:type_and_constraints.rfind("]")].strip()
+                            raw_constraints = [c.strip() for c in constraint_part.split(",") if c.strip()]
                         else:
-                            constr[col] = "no constraint"
+                            type_part = type_and_constraints.strip()
+                            raw_constraints = []
+
+                        t = type_part.lower()
+
+                        # Vérifier le type
+                        if t not in allType:
+                            print(f"❌ Unknown type '{type_part}' for column '{col}'")
+                            break
+
+                        # Normaliser et valider contraintes (insensible à la casse/espaces/tirets)
+                        normalized_constraints = []
+                        invalid_constraints = []
+                        for rc in raw_constraints:
+                            key = rc.lower().replace(" ", "_").replace("-", "_")
+                            if key in constraints_allowed:
+                                normalized_constraints.append(constraints_allowed[key])
+                            else:
+                                invalid_constraints.append(rc)
+
+                        if invalid_constraints:
+                            print(f"⚠️ Unknown constraints for '{col}': {invalid_constraints}")
+                            # si tu veux stopper à la première contrainte invalide, décommente la ligne suivante:
+                            # break
+
+                        # Enregistrer
+                        attr[col] = type_part.capitalize() if t != "number" else "Number"
+                        constr[col] = normalized_constraints if normalized_constraints else ["no constraint"]
                     else:
-                        # check permission to create table
+                        # Vérification des permissions
                         current_username = db.current_user.get("username")
                         role = db.current_user.get("role")
-                        if role == "admin" or db.permManager.has_db_permission(useDatabase, current_username, "ALL") or db.permManager.has_table_permission(useDatabase, name, current_username, "ALL"):
-                            table_def = {"caracteristique": attr, "constraint": constr, "data": []}
+
+                        if (
+                            role == "admin"
+                            or db.permManager.has_db_permission(useDatabase, current_username, "ALL")
+                            or db.permManager.has_table_permission(useDatabase, name, current_username, "ALL")
+                        ):
+                            table_def = {
+                                "caracteristique": attr,
+                                "constraint": constr,
+                                "data": []
+                            }
                             db.create_Table(useDatabase, name, table_def)
                         else:
-                            print(f"permission denied to create table '{name}' in database '{useDatabase}' for user {current_username}")
+                            print(f"🚫 Permission denied to create table '{name}' in database '{useDatabase}' for user '{current_username}'")
                 else:
-                    print("!!! syntaxe error !!!")
+                    print("❌ Syntax error: missing parentheses")
             except Exception as e:
-                print("error:", e)
+                print("🔥 Error while creating table:", e)
         else:
-            print("no database used")
+            print("⚠️ No database currently in use")
 
+    
     elif cmd_line.startswith("add_into_table"):
         if isDbUse:
             try:
