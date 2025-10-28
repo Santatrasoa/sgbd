@@ -10,6 +10,11 @@
             "Test_My_1": [
                 "ALL"
             ]
+        },
+        "My": {
+            "diary": [
+                "ALL"
+            ]
         }
     },
     "Diary": {

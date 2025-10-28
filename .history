@@ -317,3 +317,67 @@ switch_user_to test password=;
 use_db My;
 clear
 exit
+list_db;
+use_database My;
+list_table;
+create_table diary(id:nu[not_nukk]);
+create_table diary(id:number[not_nukk]);
+list_table;
+drop_table diary;
+oui
+list_table;
+drop_table Test_My;
+oui
+list_table;
+exit
+list_table;
+use_database My;
+create_table diary(id:number[not_nukk]);
+drop_table diary;
+oui
+list_table;
+use_database My;
+create_table diary(id:number[not_nukk]);
+drop_table diary;
+oui
+clear
+use_database My;
+list_table;
+create_table diary(id:number[not_nukk]);
+drop_table diary;
+oui
+use_database My;
+create_table diary(id:number[not_nukk]);
+drop_table diary;
+oui
+clear
+create_table diary(id:number[not_nukk]);
+use_database My;
+create_table diary(id:number[not_nukk]);
+drop_table diary;
+oui
+create_table diary(id:number[not_nukk]);
+list_db;
+create_db our;
+use_db our;
+clear
+create_table we(id:number[not_null, unique, auto_increment, primary_key], name:string[not_null]);
+help
+;
+grant READ on we to diary;
+clear
+switch_user_to diary password=12345678;
+switch_user_to diary password=123456;
+list_user;
+switch_user_to my password=123456;
+switch_user_to my password=12345678;
+use_db our;
+leave_db;
+create_user diary password=;
+use_db our;
+select * from we;
+create_user diary password=;
+switch_user_to diary password=;
+use_db our;
+clear
+exit

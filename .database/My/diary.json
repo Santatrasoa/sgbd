@@ -1,0 +1,12 @@
+{
+  "caracteristique": {
+    "id": "Number"
+  },
+  "constraint": {
+    "id": [
+      "Not_null",
+      "Primary_key"
+    ]
+  },
+  "data": []
+}

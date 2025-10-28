@@ -1,0 +1,18 @@
+{
+  "caracteristique": {
+    "id": "Number",
+    "name": "String"
+  },
+  "constraint": {
+    "id": [
+      "Not_null",
+      "Unique",
+      "Auto_increment",
+      "Primary_key"
+    ],
+    "name": [
+      "Not_null"
+    ]
+  },
+  "data": []
+}

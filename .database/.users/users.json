@@ -1,22 +1,16 @@
 {
     "users": [
         {
-            "username": "Diary",
-            "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
-            "role": "user",
-            "created_at": "2025-10-23 12:01:32"
-        },
-        {
-            "username": "root",
-            "password": "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f",
+            "username": "my",
+            "password": "fef3d83e32b4d981b0c0f75206e891268c6aa8bd8db5a315db7bf24168a4be27",
             "role": "admin",
-            "created_at": "2025-10-23 12:08:04"
+            "created_at": "2025-10-27 22:25:34"
         },
         {
-            "username": "test",
-            "password": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "username": "diary",
+            "password": "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
             "role": "user",
-            "created_at": "2025-10-23 12:08:30"
+            "created_at": "2025-10-28 09:27:52"
         }
     ]
 }
