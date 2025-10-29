@@ -1,7 +1,41 @@
 {
   "db_path": ".database",
-  "default_user": "root",
   "default_prompt": "m¥⇒",
-  "max_file_size_mb": 10,
-  "separator_char": "—"
+  "separator_char": "—",
+  "history_file": ".history",
+  "max_history_size": 1000,
+  "default_admin": {
+    "username": "root",
+    "role": "admin"
+  },
+  "allowed_data_types": [
+    "date",
+    "year",
+    "time",
+    "datetime",
+    "bool",
+    "number",
+    "float",
+    "string",
+    "text",
+    "bit"
+  ],
+  "allowed_constraints": {
+    "not_null": "Not_null",
+    "unique": "Unique",
+    "primary_key": "Primary_key",
+    "foreign_key": "Foreign_key",
+    "check": "Check",
+    "default": "Default",
+    "auto_increment": "Auto_increment"
+  },
+  "permissions": [
+    "SELECT",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "ALL",
+    "USAGE"
+  ]
 }

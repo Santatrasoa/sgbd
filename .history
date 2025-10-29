@@ -33,3 +33,14 @@ clear
 use_db My;
 create_table dd();
 create_table dd(id:number[not_null, unique, auto_increment], name_command:string[df]);
+use_db My;
+create_table dd(id:number[not_null, unique, auto_increment], name_command:string[df]);
+create_table dd(id:number[not_null, unique, auto_increment], name_command:string[]);
+clear
+lis_table;
+list_table;
+describe_table dd;
+create_table dd(id:number[not_null, unique, auto_increment], name_command:string[]);
+create_table dd_1(id:number[not_null, unique, auto_increment], name_command_in_the_sql:string[]);
+create_table dd(id:number[not_null, unique, auto_increment], name_command:string[]);
+describe_table dd_1;

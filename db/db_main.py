@@ -439,81 +439,129 @@ class Db:
     def show_help(self) -> None:
         """Affiche l'aide des commandes disponibles"""
         help_text = """
-╔══════════════════════════════════════════════════════════════╗
-║               COMMANDES DISPONIBLES - MY SGBD                ║
-╚══════════════════════════════════════════════════════════════╝
+        ╔══════════════════════════════════════════════════════════════╗
+        ║               COMMANDES DISPONIBLES - MY SGBD                ║
+        ╚══════════════════════════════════════════════════════════════╝
 
-📦 BASES DE DONNÉES
-  create_database <nom>              Créer une nouvelle base de données
-  create_db <nom>                    Alias pour create_database
-  drop_database <nom>                Supprimer une base de données
-  drop_db <nom>                      Alias pour drop_database
-  use_database <nom>                 Sélectionner une base de données
-  use_db <nom>                       Alias pour use_database
-  leave_database                     Quitter la base actuelle
-  leave_db                           Alias pour leave_database
-  list_database                      Lister toutes les bases
-  list_db                            Alias pour list_database
+        📦 BASES DE DONNÉES
+        create_database <nom>              Créer une nouvelle base de données
+        create_db <nom>                    Alias pour create_database
+        drop_database <nom>                Supprimer une base de données
+        drop_db <nom>                      Alias pour drop_database
+        use_database <nom>                 Sélectionner une base de données
+        use_db <nom>                       Alias pour use_database
+        leave_database                     Quitter la base actuelle
+        leave_db                           Alias pour leave_database
+        list_database                      Lister toutes les bases
+        list_db                            Alias pour list_database
+        stats_db                           Statistiques de la base active
+        database_stats                     Alias pour stats_db
 
-📋 TABLES
-  create_table <nom>(col:type[constraint], ...)
-                                     Créer une nouvelle table
-  add_into_table <table>(col=val, ...)
-                                     Insérer des données
-  drop_table <nom>                   Supprimer une table
-  list_table                         Lister les tables de la BD active
-  describe_table <nom>               Décrire la structure d'une table
+        📋 TABLES
+        create_table <nom>(col:type[constraint], ...)
+                                            Créer une nouvelle table
+        add_into_table <table>(col=val, ...)
+                                            Insérer des données
+        drop_table <nom>                   Supprimer une table
+        list_table                         Lister les tables de la BD active
+        describe_table <nom>               Décrire la structure d'une table
 
-🔍 REQUÊTES
-  select <colonnes> from <table> [where <condition>]
-                                     Interroger les données
-  update <table> set col=val [where <condition>]
-                                     Modifier des données
-  delete from <table> [where <condition>]
-                                     Supprimer des données
+        🔍 REQUÊTES
+        select <cols> from <table> [where <condition>]
+                                            Interroger les données
+        update <table> set col=val [where <condition>]
+                                            Modifier des données
+        delete from <table> [where <condition>]
+                                            Supprimer des données
 
-👤 UTILISATEURS
-  create_user <nom> password=<pwd> [role=<role>]
-                                     Créer un utilisateur
-  list_user                          Lister les utilisateurs
-  drop_user <nom>                    Supprimer un utilisateur
-  switch_user_to <nom> password=<pwd>
-                                     Changer d'utilisateur
+        👤 UTILISATEURS
+        create_user <nom> password=<pwd> [role=<role>]
+                                            Créer un utilisateur (role: user|admin)
+        list_user                          Lister les utilisateurs
+        drop_user <nom>                    Supprimer un utilisateur
+        switch_user_to <nom> password=<pwd>
+                                            Changer d'utilisateur
 
-🔐 PERMISSIONS
-  grant <perm> on <table|*> to <user>
-                                     Accorder une permission
-  revoke <perm> on <table|*> from <user>
-                                     Révoquer une permission
-  show_grants <user>                 Afficher les permissions
+        🔐 PERMISSIONS
+        grant <perm> on <table|db.*|*> to <user>
+                                            Accorder une permission
+        revoke <perm> on <table|db.*|*> from <user>
+                                            Révoquer une permission
+        show_grants <user>                 Afficher les permissions d'un user
+        show_grants <db> <user>            Afficher les permissions sur une DB
 
-⚙️  SYSTÈME
-  help                               Afficher cette aide
-  clear                              Nettoyer l'écran
-  exit                               Quitter le SGBD
+        ⚙️  SYSTÈME
+        help                               Afficher cette aide
+        list_commands                      Alias pour help
+        commands                           Alias pour help
+        clear                              Nettoyer l'écran
+        exit                               Quitter le SGBD
 
-📖 TYPES DE DONNÉES
-  date, year, time, datetime, bool, number, float, string, text, bit
+        📖 TYPES DE DONNÉES
+        date, year, time, datetime, bool, number, float, string, text, bit
 
-🔒 CONTRAINTES
-  not_null, unique, primary_key, foreign_key, check, default, auto_increment
+        🔒 CONTRAINTES
+        not_null, unique, primary_key, foreign_key, check, default, 
+        auto_increment
 
-🔎 OPÉRATEURS WHERE
-  =, !=, >, <, >=, <=, LIKE (avec % et _)
+        🔑 PERMISSIONS DISPONIBLES
+        SELECT, INSERT, UPDATE, DELETE, DROP, ALL, USAGE
 
-💡 EXEMPLES
-  create_database ma_db;
-  use_db ma_db;
-  create_table users(id:number[primary_key], nom:string[not_null]);
-  add_into_table users(id=1, nom=Alice);
-  select * from users where nom = Alice;
-  update users set nom=Bob where id = 1;
-  grant SELECT on users to alice;
+        🔎 OPÉRATEURS WHERE
+        =, !=, >, <, >=, <=, LIKE (avec % et _ comme wildcards)
 
-════════════════════════════════════════════════════════════════
-"""
+        💡 EXEMPLES
+        # Gestion des bases
+        create_database ma_db;
+        use_db ma_db;
+        stats_db;
+        
+        # Création de table
+        create_table users(
+            id:number[primary_key,auto_increment],
+            nom:string[not_null,unique],
+            age:number,
+            email:string
+        );
+        
+        # Insertion de données
+        add_into_table users(id=1, nom=Alice, age=25, email=alice@test.com);
+        add_into_table users(id=2, nom=Bob, age=30);
+        
+        # Requêtes SELECT
+        select * from users;
+        select nom, age from users;
+        select * from users where age > 25;
+        select * from users where nom LIKE %Ali%;
+        
+        # Mise à jour
+        update users set age=26 where nom=Alice;
+        update users set email=bob@test.com where id=2;
+        
+        # Suppression
+        delete from users where age < 18;
+        
+        # Gestion des utilisateurs
+        create_user alice password=secret123 role=user;
+        switch_user_to alice password=secret123;
+        
+        # Gestion des permissions
+        grant SELECT on users to alice;
+        grant ALL on ma_db.* to bob;
+        revoke DELETE on users from alice;
+        show_grants alice;
+
+        📝 NOTES
+        • Toutes les commandes se terminent par un point-virgule (;)
+        • Les commandes multi-lignes sont supportées
+        • Les noms de colonnes/tables : [a-zA-Z_][a-zA-Z0-9_]*
+        • Les mots de passe sont hashés avec SHA-256
+        • L'utilisateur 'root' est admin par défaut
+        • Les admins ont tous les droits sur toutes les bases
+
+        ════════════════════════════════════════════════════════════════
+        """
         print(help_text)
-
     # -----------------------------
     # UTILITAIRES
     # -----------------------------
