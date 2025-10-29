@@ -1,0 +1,17 @@
+{
+  "caracteristique": {
+    "id": "Number",
+    "name_command": "String"
+  },
+  "constraint": {
+    "id": [
+      "Not_null",
+      "Unique",
+      "Auto_increment"
+    ],
+    "name_command": [
+      "no constraint"
+    ]
+  },
+  "data": []
+}

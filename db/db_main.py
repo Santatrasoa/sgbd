@@ -34,13 +34,13 @@ class Db:
             bool: True si créée avec succès, False sinon
         """
         if not dbName or not dbName.strip():
-            print("❌ Le nom de la base de données ne peut pas être vide")
+            print("❌ Database name cannot be empty")
             return False
         
         path = Path(f"{self.dbPath}/{dbName}")
         
         if path.exists():
-            print(f"❌ La base de données '{dbName}' existe déjà")
+            print(f"❌ Database '{dbName}' already exists")
             return False
         
         try:
@@ -55,7 +55,7 @@ class Db:
                 caller_role=self.current_user.get("role")
             )
             
-            print(f"✓ Base de données '{dbName}' créée avec succès")
+            print(f"✓ Database '{dbName}' created successfully")
             return True
             
         except Exception as e:
@@ -93,26 +93,26 @@ class Db:
             bool: True si supprimée, False sinon
         """
         if not databaseName or not databaseName.strip():
-            print("❌ Le nom de la base de données ne peut pas être vide")
+            print("❌ Database name cannot be empty")
             return False
         
         path = Path(f"{self.dbPath}/{databaseName}")
         
         if not path.exists():
-            print(f"❌ La base de données '{databaseName}' n'existe pas")
+            print(f"❌ Database '{databaseName}' does not exist")
             return False
         
         if not path.is_dir():
-            print(f"❌ '{databaseName}' n'est pas une base de données valide")
+            print(f"❌ '{databaseName}' is not a valid database")
             return False
         
         try:
             shutil.rmtree(path)
             
-            # Nettoyer les permissions associées
+            # Cleanup associated permissions
             self.permManager.cleanup_database_permissions(databaseName)
             
-            print(f"✓ Base de données '{databaseName}' supprimée avec succès")
+            print(f"✓ Database '{databaseName}' removed successfully")
             return True
             
         except Exception as e:
@@ -124,7 +124,7 @@ class Db:
         allDirs = self.list_database(self.dbPath)
         
         if not allDirs:
-            print("📂 Aucune base de données trouvée")
+            print("📂 No databases found")
             return
         
         # Calculer la largeur pour l'affichage
@@ -142,7 +142,7 @@ class Db:
             print(f" {db_name:<{max_len}}{owner_mark}")
         
         print(separator)
-        print(f"Total: {len(allDirs)} base{'s' if len(allDirs) > 1 else ''} de données")
+        print(f"Total: {len(allDirs)} database{'s' if len(allDirs) > 1 else ''}")
 
     # -----------------------------
     # TABLES
@@ -180,22 +180,22 @@ class Db:
             bool: True si créée avec succès, False sinon
         """
         if not name or not name.strip():
-            print("❌ Le nom de la table ne peut pas être vide")
+            print("❌ Table name cannot be empty")
             return False
         
         path = Path(f"{self.dbPath}/{dbName}/{name}.json")
         
         if path.exists():
-            print(f"❌ La table '{name}' existe déjà")
+            print(f"❌ Table '{name}' already exists")
             return False
         
         try:
             # Valider la structure de l'attribut
             if "caracteristique" not in attribute:
-                print("❌ La définition de la table doit contenir 'caracteristique'")
+                print("❌ Table definition must include 'caracteristique'")
                 return False
             
-            # Initialiser les données si absentes
+            # Initialize data if missing
             if "data" not in attribute:
                 attribute["data"] = []
             
@@ -203,19 +203,18 @@ class Db:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(attribute, f, indent=2, ensure_ascii=False)
             
-            # Accorder tous les droits au créateur
+            # Grant ALL permissions to the creator
             username = self.current_user["username"]
             self.permManager.grant(
                 dbName, name, username, "ALL",
                 caller_username=username,
                 caller_role=self.current_user.get("role")
             )
-            
-            print(f"✓ Table '{name}' créée avec succès")
+            print(f"✓ Table '{name}' created successfully")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur lors de la création de la table: {e}")
+            print(f"❌ Error creating table: {e}")
             # Nettoyer en cas d'erreur
             if path.exists():
                 path.unlink()
@@ -233,22 +232,22 @@ class Db:
             bool: True si supprimée, False sinon
         """
         if not tableName or not tableName.strip():
-            print("❌ Le nom de la table ne peut pas être vide")
+            print("❌ Table name cannot be empty")
             return False
         
         path = Path(f"{self.dbPath}/{dbName}/{tableName}.json")
         
         if not path.exists():
-            print(f"❌ La table '{tableName}' n'existe pas")
+            print(f"❌ Table '{tableName}' does not exist")
             return False
         
         try:
             path.unlink()
             
-            # Nettoyer les permissions de la table
+            # Cleanup table permissions
             self.permManager.cleanup_table_permissions(dbName, tableName)
             
-            print(f"✓ Table '{tableName}' supprimée avec succès")
+            print(f"✓ Table '{tableName}' removed successfully")
             return True
             
         except Exception as e:
@@ -267,7 +266,7 @@ class Db:
             bool: True si ajoutées avec succès, False sinon
         """
         if not os.path.exists(path):
-            print("❌ La table n'existe pas")
+            print("❌ Table does not exist")
             return False
         
         try:
@@ -275,10 +274,12 @@ class Db:
                 content = json.load(f)
             
             caracteristiques = content.get("caracteristique", {})
-            constraints = content.get("constraint", {})
+            # Normalize constraint tokens to lowercase for robust comparisons
+            raw_constraints = content.get("constraint", {})
+            constraints = {col: [c.lower() for c in (vals if isinstance(vals, list) else [vals])] for col, vals in raw_constraints.items()}
             
             if not caracteristiques:
-                print("❌ La table n'a pas de colonnes définies")
+                print("❌ Table has no defined columns")
                 return False
             
             addedData = {}
@@ -308,36 +309,36 @@ class Db:
                     print(f"❌ Erreur lors du parsing de '{item}'")
                     return False
             
-            # Vérifier les colonnes manquantes avec contrainte NOT NULL
+            # Check NOT NULL constraints (case-insensitive)
             for col, constraint_list in constraints.items():
-                if "Not_null" in constraint_list and col not in addedData:
-                    print(f"❌ La colonne '{col}' ne peut pas être NULL (contrainte NOT NULL)")
+                if 'not_null' in constraint_list and col not in addedData:
+                    print(f"❌ Column '{col}' cannot be NULL (NOT NULL constraint)")
                     return False
             
-            # Vérifier les colonnes UNIQUE
+            # Check UNIQUE constraints
             existing_data = content.get("data", [])
             for col, constraint_list in constraints.items():
-                if "Unique" in constraint_list and col in addedData:
+                if 'unique' in constraint_list and col in addedData:
                     for row in existing_data:
                         if row.get(col) == addedData[col]:
-                            print(f"❌ Violation de contrainte UNIQUE sur la colonne '{col}'")
+                            print(f"❌ UNIQUE constraint violation on column '{col}'")
                             return False
             
-            # Ajouter les données
+            # Append the new row
             content["data"].append(addedData)
             
             # Sauvegarder
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(content, f, indent=2, ensure_ascii=False)
             
-            print(f"✓ Données ajoutées avec succès")
+            print(f"✓ Data added successfully")
             return True
             
         except json.JSONDecodeError:
-            print("❌ Fichier JSON corrompu")
+            print("❌ Corrupted JSON file")
             return False
         except Exception as e:
-            print(f"❌ Erreur lors de l'ajout des données: {e}")
+            print(f"❌ Error inserting data: {e}")
             return False
 
     def describe_table(self, path: str) -> bool:
@@ -351,7 +352,7 @@ class Db:
             bool: True si affichée, False sinon
         """
         if not os.path.exists(path):
-            print("❌ La table n'existe pas")
+            print("❌ Table does not exist")
             return False
         
         try:
@@ -359,11 +360,12 @@ class Db:
                 content = json.load(f)
             
             caracteristiques = content.get("caracteristique", {})
-            constraints = content.get("constraint", {})
+            raw_constraints = content.get("constraint", {})
+            constraints = {col: [c.lower() for c in (vals if isinstance(vals, list) else [vals])] for col, vals in raw_constraints.items()}
             data_count = len(content.get("data", []))
             
             if not caracteristiques:
-                print("⚠️ La table n'a pas de colonnes définies")
+                print("⚠️ Table has no defined columns")
                 return True
             
             # Calculer les largeurs
@@ -377,26 +379,26 @@ class Db:
             print(separator)
             print(f"{'TABLE: ' + table_name.upper():^{len(separator)}}")
             print(separator)
-            print(f"{'Colonne':<{max_col_len}} | {'Type':<{max_type_len}} | Contraintes")
+            print(f"{'Column':<{max_col_len}} | {'Type':<{max_type_len}} | Constraints")
             print(separator)
             
             # Afficher chaque colonne
             for col, col_type in caracteristiques.items():
-                constraint_list = constraints.get(col, ["Aucune"])
+                constraint_list = constraints.get(col, ["no constraint"])
                 
-                # Formater les contraintes
+                # Format constraints for display (capitalize tokens)
                 if isinstance(constraint_list, list):
                     if "no constraint" in constraint_list:
-                        constraint_str = "Aucune"
+                        constraint_str = "None"
                     else:
-                        constraint_str = ", ".join(constraint_list)
+                        constraint_str = ", ".join([c.upper() if len(c) <= 6 else c for c in constraint_list])
                 else:
                     constraint_str = str(constraint_list)
                 
                 print(f"{col:<{max_col_len}} | {col_type:<{max_type_len}} | {constraint_str}")
             
             print(separator)
-            print(f"Total: {len(caracteristiques)} colonne{'s' if len(caracteristiques) > 1 else ''}, {data_count} ligne{'s' if data_count > 1 else ''}")
+            print(f"Total: {len(caracteristiques)} column{'s' if len(caracteristiques) > 1 else ''}, {data_count} row{'s' if data_count > 1 else ''}")
             print(separator)
             
             return True

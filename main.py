@@ -42,208 +42,189 @@ def hash_password(password):
 
 
 def check_permission(db, operation, database_name, table_name=None):
-    """
-    Vérifie si l'utilisateur actuel a la permission pour une opération
-    
+    """Check if current user has a permission on a database or table.
+
     Args:
-        db: Instance de la base de données
-        operation: Type d'opération (READ, INSERT, DELETE, UPDATE, DROP, SELECT, ALL)
-        database_name: Nom de la base de données
-        table_name: Nom de la table (optionnel)
-    
+        db: Db instance
+        operation: permission string (e.g. SELECT, INSERT, UPDATE, DELETE, DROP, ALL, USAGE)
+        database_name: name of the database
+        table_name: optional table name
+
     Returns:
-        bool: True si autorisé, False sinon
+        bool: True if allowed, False otherwise
     """
-    current_username = db.current_user.get("username")
+    username = db.current_user.get("username")
     role = db.current_user.get("role")
-    
-    # Les admins ont tous les droits
+
+    # Admin bypass
     if role == "admin":
         return True
-    
-    # Vérification au niveau table (si spécifié)
+
+    # USAGE is mapped to database read/check
+    op = operation.upper()
+
+    # If table_name provided, check table permission first
     if table_name:
-        if (db.permManager.has_table_permission(database_name, table_name, current_username, "ALL") or
-            db.permManager.has_table_permission(database_name, table_name, current_username, operation)):
-            return True
-    
-    # Vérification au niveau base de données
-    if (db.permManager.has_db_permission(database_name, current_username, "ALL") or
-        db.permManager.has_db_permission(database_name, current_username, operation)):
-        return True
-    
-    return False
+        try:
+            return db.permManager.has_table_permission(database_name, table_name, username, op) or db.permManager.has_db_permission(database_name, username, op)
+        except Exception:
+            return False
 
-
-def validate_table_name(name):
-    """
-    Valide le nom d'une table selon les règles SQL
-    
-    Args:
-        name: Nom de la table à valider
-        
-    Returns:
-        tuple: (bool, str) - (valide?, message d'erreur si invalide)
-    """
-    if not name:
-        return False, "Le nom de table ne peut pas être vide"
-    
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
-        return False, "Le nom doit commencer par une lettre ou _ et contenir uniquement des lettres, chiffres et _"
-    
-    if len(name) > 64:
-        return False, "Le nom de table ne peut pas dépasser 64 caractères"
-    
-    return True, ""
-
-
-def split_top_level_commas(s):
-    """
-    Split une chaîne par virgules en ignorant celles dans les crochets
-    Utilisé pour parser les définitions de colonnes avec contraintes
-    
-    Args:
-        s: Chaîne à découper
-        
-    Returns:
-        list: Liste des fragments séparés par virgules (hors crochets)
-        
-    Example:
-        "col1:string[not_null,unique], col2:number" 
-        -> ["col1:string[not_null,unique]", "col2:number"]
-    """
-    parts = []
-    cur = []
-    depth = 0
-    
-    for ch in s:
-        if ch == '[':
-            depth += 1
-            cur.append(ch)
-        elif ch == ']':
-            depth = max(depth - 1, 0)
-            cur.append(ch)
-        elif ch == ',' and depth == 0:
-            fragment = ''.join(cur).strip()
-            if fragment:
-                parts.append(fragment)
-            cur = []
-        else:
-            cur.append(ch)
-    
-    # Ajouter le dernier fragment
-    last = ''.join(cur).strip()
-    if last:
-        parts.append(last)
-    
-    return parts
+    # No table: check database-level permission
+    try:
+        return db.permManager.has_db_permission(database_name, username, op)
+    except Exception:
+        return False
 
 
 def parse_where_clause(where_clause, all_rows):
-    """
-    Parse et applique une clause WHERE avec support des opérateurs multiples
-    
-    Supporte les opérateurs: =, !=, >, <, >=, <=, LIKE
-    
+    """Parse and apply a WHERE clause to rows.
+
+    Supports operators: =, !=, >, <, >=, <=, LIKE
+
     Args:
-        where_clause: Clause WHERE sans le mot-clé WHERE
-        all_rows: Liste de dictionnaires représentant les lignes
-        
+        where_clause: WHERE clause string (without keyword)
+        all_rows: list of dict rows
+
     Returns:
-        list: Liste filtrée des lignes correspondant à la condition
-        
-    Examples:
-        parse_where_clause("age > 18", rows)
-        parse_where_clause("nom LIKE %Jean%", rows)
-        parse_where_clause("status = active", rows)
+        list: filtered rows
     """
+    if where_clause is None:
+        return all_rows
+
     where_clause = where_clause.strip()
-    
-    # Détection de l'opérateur (ordre important pour >= et <=)
+    if not where_clause:
+        return all_rows
+
+    # detection order: >=, <=, !=, =, >, <, LIKE
     operators = ['>=', '<=', '!=', '=', '>', '<', ' LIKE ', ' like ']
     operator = None
-    
     for op in operators:
         if op in where_clause:
             operator = op.strip()
+            split_op = op
             break
-    
+
     if not operator:
-        print("❌ Opérateur non reconnu dans WHERE")
-        print("Opérateurs supportés: =, !=, >, <, >=, <=, LIKE")
+        print("Unrecognized operator in WHERE. Supported: =, !=, >, <, >=, <=, LIKE")
         return []
-    
+
     try:
-        # Découper la clause WHERE
-        parts = where_clause.split(operator, 1)
-        if len(parts) != 2:
-            print("❌ Syntaxe WHERE invalide")
-            return []
-        
-        left = parts[0].strip()  # Nom de la colonne
-        right = parts[1].strip().strip("'").strip('"')  # Valeur de comparaison
-        
-        filtered_rows = []
-        
+        left, right = where_clause.split(split_op, 1)
+        left = left.strip()
+        right = right.strip().strip("'").strip('"')
+
+        filtered = []
         for row in all_rows:
             value = str(row.get(left, ""))
-            
-            # Appliquer l'opérateur
             if operator == '=':
                 if value == right:
-                    filtered_rows.append(row)
-                    
+                    filtered.append(row)
             elif operator == '!=':
                 if value != right:
-                    filtered_rows.append(row)
-                    
+                    filtered.append(row)
             elif operator == '>':
                 try:
-                    # Essayer comparaison numérique
                     if float(value) > float(right):
-                        filtered_rows.append(row)
+                        filtered.append(row)
                 except ValueError:
-                    # Comparaison alphabétique
                     if value > right:
-                        filtered_rows.append(row)
-                        
+                        filtered.append(row)
             elif operator == '<':
                 try:
                     if float(value) < float(right):
-                        filtered_rows.append(row)
+                        filtered.append(row)
                 except ValueError:
                     if value < right:
-                        filtered_rows.append(row)
-                        
+                        filtered.append(row)
             elif operator == '>=':
                 try:
                     if float(value) >= float(right):
-                        filtered_rows.append(row)
+                        filtered.append(row)
                 except ValueError:
                     if value >= right:
-                        filtered_rows.append(row)
-                        
+                        filtered.append(row)
             elif operator == '<=':
                 try:
                     if float(value) <= float(right):
-                        filtered_rows.append(row)
+                        filtered.append(row)
                 except ValueError:
                     if value <= right:
-                        filtered_rows.append(row)
-                        
+                        filtered.append(row)
             elif operator.upper() == 'LIKE':
-                # Conversion du pattern SQL LIKE en regex Python
-                # % = 0 ou plusieurs caractères
-                # _ = exactement 1 caractère
                 pattern = right.replace('%', '.*').replace('_', '.')
                 if re.search(pattern, value, re.IGNORECASE):
-                    filtered_rows.append(row)
-        
-        return filtered_rows
-        
+                    filtered.append(row)
+
+        return filtered
     except Exception as e:
-        print(f"❌ Erreur dans la clause WHERE: {e}")
+        print(f"Error parsing WHERE clause: {e}")
         return []
+
+
+def validate_table_name(name: str):
+    """Validate a table name. Returns (is_valid, error_message).
+
+    Rules:
+      - non-empty
+      - start with letter or underscore
+      - contains only letters, digits, or underscore
+    """
+    if not name or not name.strip():
+        return False, "name is empty"
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+        return False, "must start with a letter or '_' and contain only letters, digits and '_'"
+    return True, ""
+
+
+def split_top_level_commas(s: str):
+    """Split a comma-separated string but ignore commas inside brackets or quotes.
+
+    Example: "id:number[primary_key,not_null], name:string" -> ["id:number[primary_key,not_null]", "name:string"]
+    """
+    parts = []
+    buf = []
+    depth = 0
+    in_single = False
+    in_double = False
+
+    for ch in s:
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            buf.append(ch)
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            buf.append(ch)
+            continue
+
+        if in_single or in_double:
+            buf.append(ch)
+            continue
+
+        if ch == '[':
+            depth += 1
+            buf.append(ch)
+            continue
+        if ch == ']':
+            if depth > 0:
+                depth -= 1
+            buf.append(ch)
+            continue
+
+        if ch == ',' and depth == 0:
+            part = ''.join(buf).strip()
+            if part:
+                parts.append(part)
+            buf = []
+            continue
+
+        buf.append(ch)
+
+    last = ''.join(buf).strip()
+    if last:
+        parts.append(last)
+    return parts
 
 """
 MY SGBD - Partie 2/5 : Initialisation et Gestion des Bases de Données
@@ -265,7 +246,7 @@ db = Db(DB_PATH)
 useDatabase = ""
 isDbUse = False
 
-# Formater le prompt avec l'utilisateur actuel
+# Formater le prompt avec l'User actuel
 userUsingDb = f"user:\033[32m{db.current_user['username']}\033[0m"
 promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
 
@@ -276,11 +257,11 @@ if os.path.exists(".history"):
     except Exception:
         pass
 
-# Message de bienvenue
+# Welcome message
 print("╔══════════════════════════════════════════════════════════════╗")
-print("║          Bienvenue dans MY - Votre SGBD personnel            ║")
+print("║          Welcome to MY - Your personal DBMS                  ║")
 print("╚══════════════════════════════════════════════════════════════╝")
-print("Tapez 'help' pour voir les commandes disponibles\n")
+print("Type 'help' to see available commands\n")
 
 # ============================================================================
 # BOUCLE PRINCIPALE
@@ -295,7 +276,7 @@ while True:
         continue
     except EOFError:
         readline.write_history_file(".history")
-        print("\n👋 Au revoir ! Merci d'avoir utilisé MY")
+        print("\nBye! Thanks for using MY")
         exit()
 
     # ========================================
@@ -310,7 +291,7 @@ while True:
     # Exit : quitter le programme
     if cmd.strip() in ["exit", "exit;"]:
         readline.write_history_file(".history")
-        print("👋 Au revoir ! Merci d'avoir utilisé MY")
+        print("Bye! Thanks for using MY")
         exit()
 
     # ========================================
@@ -325,7 +306,7 @@ while True:
             print("\n^C")
             break
         except EOFError:
-            print("\n👋 Au revoir ! Merci d'avoir utilisé MY")
+            print("\n Au revoir ! Merci d'avoir utilisé MY")
             readline.write_history_file(".history")
             exit()
         cmd += " " + next_line.strip()
@@ -369,18 +350,18 @@ while True:
         dirs = db.list_database(DB_PATH)
         
         if useDatabase in dirs:
-            # Vérifier les permissions
+            # Check permissions
             if check_permission(db, "USAGE", useDatabase) or check_permission(db, "READ", useDatabase):
-                print(f"✓ Base de données '{useDatabase}' sélectionnée")
-                # Mettre à jour le prompt
+                print(f"✓ Database '{useDatabase}' selected")
+                # Update the prompt
                 promptContainte = f"[{userUsingDb} & db:\033[34m{useDatabase}\033[0m]\n{DEFAULT_PROMPT} "
                 isDbUse = True
             else:
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour utiliser '{useDatabase}' (utilisateur: {current_username})")
+                print(f"Permission denied to use '{useDatabase}' (user: {current_username})")
         else:
-            print(f"❌ La base de données '{useDatabase}' n'existe pas")
-            print(f"Bases disponibles: {', '.join(dirs) if dirs else 'aucune'}")
+            print(f"Database '{useDatabase}' does not exist")
+            print(f"Available databases: {', '.join(dirs) if dirs else 'none'}")
 
     # ----------------------------------------
     # DROP DATABASE : Supprimer une base
@@ -394,28 +375,28 @@ while True:
         
         # Vérifier si la base n'est pas en cours d'utilisation
         if databaseToRemove == useDatabase:
-            print("⚠️ Cette base de données est en cours d'utilisation.")
-            print("Utilisez: 'leave_db' ou sélectionnez une autre base")
+            print("This database is currently in use.")
+            print("Use: 'leave_db' or select another database")
         else:
             # Demander confirmation
-            confirm = input(f"⚠️ Supprimer la base '{databaseToRemove}' ? (oui/non): ").strip().lower()
+            confirm = input(f"Delete database '{databaseToRemove}'? (yes/no): ").strip().lower()
             if confirm in ["oui", "yes", "y"]:
                 db.drop_database(databaseToRemove)
             else:
-                print("❌ Opération annulée")
+                print("Operation cancelled")
 
     # ----------------------------------------
     # LEAVE DATABASE : Quitter la base actuelle
     # ----------------------------------------
     elif cmd_line.startswith("leave_db") or cmd_line.startswith("leave_database"):
         if isDbUse:
-            print(f"✓ Vous avez quitté la base de données '{useDatabase}'")
+            print(f"✓ You left database '{useDatabase}'")
             useDatabase = ""
             isDbUse = False
             # Réinitialiser le prompt
             promptContainte = f"[{userUsingDb}]\n{DEFAULT_PROMPT} "
         else:
-            print("⚠️ Aucune base de données n'est actuellement sélectionnée")
+            print("No database currently selected")
 
     # ----------------------------------------
     # LIST DATABASE : Lister les bases
@@ -429,29 +410,13 @@ while True:
     elif cmd_line.startswith("stats_db") or cmd_line.startswith("database_stats"):
         if isDbUse:
             stats = db.get_statistics(useDatabase)
-            print(f"\n📊 Statistiques de '{useDatabase}':")
-            print(f"   📋 Tables: {stats['tables']}")
-            print(f"   📝 Lignes totales: {stats['total_rows']}")
-            print(f"   📑 Colonnes totales: {stats['total_columns']}")
+            print(f"\nStatistics for '{useDatabase}':")
+            print(f"    Tables: {stats['tables']}")
+            print(f"    Total rows: {stats['total_rows']}")
+            print(f"    Total columns: {stats['total_columns']}")
         else:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
-
-    # else:
-    #     # Cette commande sera gérée dans les parties suivantes
-    #     # Pour l'instant, on affiche un message temporaire
-    #     print(f"⏳ Commande '{cmd_line}' en cours de traitement...")
-
-    #     """
-    #     MY SGBD - Partie 3/5 : Gestion des Tables
-
-    #     Cette partie contient :
-    #     - CREATE TABLE (avec parsing avancé des colonnes et contraintes)
-    #     - DROP TABLE
-    #     - LIST TABLE
-    #     - DESCRIBE TABLE
-    #     - ADD INTO TABLE (insertion de données)
-    #     """
+            print("No database selected")
+            print("Use: use_db <database_name>;")
 
 # ============================================================================
 # GESTION DES TABLES
@@ -462,16 +427,16 @@ while True:
     # ----------------------------------------
     elif cmd_line.startswith("create_table"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("use: use_db <nom_base>;")
             continue
 
         try:
             # Vérifier la présence des parenthèses
             if "(" not in cmd or ")" not in cmd:
-                print("❌ Erreur de syntaxe: parenthèses manquantes")
+                print("Syntax error: parenthèses manquantes")
                 print("Usage: create_table nom(col1:type[contraintes], col2:type, ...);")
-                print("Exemple: create_table users(id:number[primary_key], nom:string[not_null]);")
+                print("Example: create_table users(id:number[primary_key], nom:string[not_null]);")
                 continue
 
             # Extraction du nom de la table
@@ -480,13 +445,13 @@ while True:
             # Validation du nom de table
             is_valid, error_msg = validate_table_name(name)
             if not is_valid:
-                print(f"❌ Nom de table invalide: {error_msg}")
+                print(f"Invalid table name: {error_msg}")
                 continue
 
             # Vérification des permissions
             if not check_permission(db, "ALL", useDatabase, name):
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour créer la table '{name}' (utilisateur: {current_username})")
+                print(f"Permission denied to create table '{name}' (user: {current_username})")
                 continue
 
             # Extraire le contenu entre parenthèses
@@ -519,8 +484,8 @@ while True:
 
                 # Vérifier syntaxe nom:type
                 if ":" not in val:
-                    print(f"❌ Erreur de syntaxe dans '{val}' — format attendu: nom:type[contrainte,...]")
-                    print("Exemple: id:number[primary_key,not_null]")
+                    print(f"Syntax error in '{val}' — expected format: name:type[constraint,...]")
+                    print("Example: id:number[primary_key,not_null]")
                     has_error = True
                     break
 
@@ -531,8 +496,8 @@ while True:
 
                 # Vérifier nom de colonne
                 if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
-                    print(f"❌ Nom de colonne invalide: '{col}'")
-                    print("Le nom doit commencer par une lettre ou _ et contenir uniquement lettres, chiffres et _")
+                    print(f"Invalid column name: '{col}'")
+                    print("Name must start with a letter or _ and contain only letters, digits and _")
                     has_error = True
                     break
 
@@ -551,8 +516,8 @@ while True:
 
                 # Vérifier type de donnée
                 if t not in allType:
-                    print(f"❌ Type inconnu '{type_part}' pour la colonne '{col}'")
-                    print(f"Types disponibles: {', '.join(allType)}")
+                    print(f"Unknown type '{type_part}' for column '{col}'")
+                    print(f"Available types: {', '.join(allType)}")
                     has_error = True
                     break
 
@@ -567,10 +532,10 @@ while True:
                     else:
                         invalid_constraints.append(rc)
 
-                # Si contraintes invalides → erreur bloquante
+                # Si contraintes invalides →Error bloquante
                 if invalid_constraints:
-                    print(f"⚠️ Contraintes inconnues pour '{col}': {', '.join(invalid_constraints)}")
-                    print(f"Contraintes disponibles: {', '.join(constraints_allowed.keys())}")
+                    print(f"Unknown constraints for '{col}': {', '.join(invalid_constraints)}")
+                    print(f"Available constraints: {', '.join(constraints_allowed.keys())}")
                     has_error = True
                     break
 
@@ -578,9 +543,9 @@ while True:
                 attr[col] = type_part.capitalize() if t != "number" else "Number"
                 constr[col] = normalized_constraints if normalized_constraints else ["no constraint"]
 
-            # Si erreur → on stoppe la création
+            # SiError → on stoppe la création
             if has_error:
-                print("❌ Création annulée à cause d’erreurs détectées.")
+                print("Creation cancelled due to detected errors.")
                 continue
 
             # Créer la table si tout est correct
@@ -593,7 +558,7 @@ while True:
             db.create_Table(useDatabase, name, table_def)
 
         except Exception as e:
-            print(f"🔥 Erreur lors de la création de la table: {e}")
+            print(f"Error creating table: {e}")
             import traceback
             traceback.print_exc()
 
@@ -602,8 +567,8 @@ while True:
     # ----------------------------------------
     elif cmd_line.startswith("add_into_table"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("Use: use_db <database_name>;")
             continue
             
         try:
@@ -619,26 +584,26 @@ while True:
             # Vérification des permissions
             if not check_permission(db, "INSERT", useDatabase, table_name):
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour insérer dans '{table_name}' (utilisateur: {current_username})")
+                print(f"Permission denied to insert into '{table_name}' (user: {current_username})")
                 continue
             
             # Appeler la méthode d'analyse et insertion
             db.analyse_data(pathToFile, values)
             
         except IndexError:
-            print("❌ Erreur de syntaxe")
+            print("Syntax error")
             print("Usage: add_into_table nom_table(col1=val1, col2=val2, ...);")
-            print("Exemple: add_into_table users(id=1, nom=Alice, age=25);")
+            print("Example: add_into_table users(id=1, nom=Alice, age=25);")
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            print(f"Error: {e}")
 
     # ----------------------------------------
     # DROP TABLE : Supprimer une table
     # ----------------------------------------
     elif cmd_line.startswith("drop_table"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("Use: use_db <database_name>;")
             continue
             
         tableToRemove = cmd[10:].strip()
@@ -646,23 +611,23 @@ while True:
         # Vérification des permissions
         if not check_permission(db, "DROP", useDatabase, tableToRemove):
             current_username = db.current_user.get("username")
-            print(f"🚫 Permission refusée pour supprimer '{tableToRemove}' (utilisateur: {current_username})")
+            print(f"Permission denied to drop '{tableToRemove}' (user: {current_username})")
             continue
         
         # Demander confirmation
-        confirm = input(f"⚠️ Supprimer la table '{tableToRemove}' ? (oui/non): ").strip().lower()
+        confirm = input(f"Delete table '{tableToRemove}'? (yes/no): ").strip().lower()
         if confirm in ["oui", "yes", "y"]:
             db.drop_table(useDatabase, tableToRemove)
         else:
-            print("❌ Opération annulée")
+            print("Operation cancelled")
 
     # ----------------------------------------
     # LIST TABLE : Lister les tables
     # ----------------------------------------
     elif cmd_line.startswith("list_table"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print(" No database selected")
+            print("use: use_db <db_name>;")
             continue
             
         current_username = db.current_user.get("username")
@@ -670,7 +635,7 @@ while True:
         
         # Vérifier les permissions
         if role != "admin" and not db.permManager.user_has_any_permission(useDatabase, current_username):
-            print(f"🚫 Permission refusée pour lister les tables de '{useDatabase}' (utilisateur: {current_username})")
+            print(f" Permission denied to read table in'{useDatabase}' (User: {current_username})")
             continue
         
         # Lister les tables
@@ -678,12 +643,12 @@ while True:
         tables = db.list_table(path)
         
         if len(tables) == 0:
-            print("📂 Aucune table trouvée dans cette base de données")
+            print("📂 No tables found in this database")
         else:
             # Calculer la largeur pour l'affichage
             l = max([len(t.replace('.json', '')) for t in tables] + [15])
             print(SEPARATOR * (l + 4))
-            print(f"{'TABLES DANS ' + useDatabase.upper():^{l + 4}}")
+            print(f"{'In the table ' + useDatabase.upper():^{l + 4}}")
             print(SEPARATOR * (l + 4))
             
             for t in sorted(tables):
@@ -698,8 +663,8 @@ while True:
     # ----------------------------------------
     elif cmd_line.startswith("describe_table"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("use : use_db <nom_base>;")
             continue
             
         table_name = cmd[15:].strip()
@@ -707,7 +672,7 @@ while True:
         # Vérification des permissions
         if not check_permission(db, "SELECT", useDatabase, table_name):
             current_username = db.current_user.get("username")
-            print(f"🚫 Permission refusée pour décrire '{table_name}' (utilisateur: {current_username})")
+            print(f"Permission denied to describe '{table_name}' (user: {current_username})")
             continue
         
         # Afficher la description
@@ -727,129 +692,123 @@ while True:
     # ----------------------------------------
     elif cmd_line.startswith("select"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("use: use_db <nom_base>;")
             continue
             
         # Extraire la requête (tout après "select")
         getRequests = " ".join(cmd.split(" ")[1:]).strip()
         
         if len(getRequests) == 0:
-            print("❌ Erreur de syntaxe")
-            print("Usage: select <colonnes> from <table> [where <condition>];")
-            print("Exemples:")
+            print("Syntax error")
+            print("Usage: select <columns> from <table> [where <condition>];")
+            print("Examples:")
             print("  select * from users;")
-            print("  select nom, age from users where age > 18;")
+            print("  select name, age from users where age > 18;")
             continue
         
-        # Parser la requête: select colonnes from table [where condition]
+        # Parse request: select columns from table [where condition]
         parts = getRequests.split()
-        
+
         if len(parts) >= 3 and parts[1].lower() == "from":
             columns_part = parts[0]
             table_name = parts[2]
-            
-            # Vérification des permissions
+
+            # Permission check
             if not check_permission(db, "SELECT", useDatabase, table_name):
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour lire '{table_name}' (utilisateur: {current_username})")
+                print(f"Permission denied to read '{table_name}' (user: {current_username})")
                 continue
-            
-            # Extraire la clause WHERE si présente
+
+            # Extract WHERE clause if present
             where_clause = None
             if "where" in [p.lower() for p in parts]:
                 where_index = [p.lower() for p in parts].index("where")
                 if len(parts) > where_index + 1:
                     where_clause = " ".join(parts[where_index + 1:])
                 else:
-                    print("❌ Erreur de syntaxe après WHERE")
+                    print("Syntax error after WHERE")
                     continue
-            
-            # Chemin vers le fichier de la table
+
+            # Path to table file
             path = f"{DB_PATH}/{useDatabase}/{table_name}.json"
-            
+
             if not os.path.exists(path):
-                print(f"❌ La table '{table_name}' n'existe pas")
+                print(f"Table '{table_name}' does not exist")
                 continue
-            
+
             try:
-                # Charger la table
                 with open(path, "r", encoding="utf-8") as f:
                     content = json.load(f)
-                
+
                 all_rows = content.get("data", [])
                 all_columns = list(content.get("caracteristique", {}).keys())
-                
-                # Normalisation des données (nettoyer les espaces et guillemets)
+
+                # Normalize rows
                 normalized_rows = []
                 for row in all_rows:
                     clean_row = {}
                     for k, v in row.items():
                         clean_row[k.strip()] = str(v).strip().strip('"')
                     normalized_rows.append(clean_row)
-                
+
                 all_rows = normalized_rows
-                
-                # Sélection des colonnes
+
+                # Select columns
                 if columns_part == "*":
                     selected_columns = all_columns
                 else:
                     selected_columns = [c.strip() for c in columns_part.split(",")]
-                    
-                    # Vérifier que les colonnes existent
                     invalid_cols = [c for c in selected_columns if c not in all_columns]
                     if invalid_cols:
-                        print(f"❌ Colonnes inconnues: {', '.join(invalid_cols)}")
-                        print(f"Colonnes disponibles: {', '.join(all_columns)}")
+                        print(f"Unknown columns: {', '.join(invalid_cols)}")
+                        print(f"Available columns: {', '.join(all_columns)}")
                         continue
-                
-                # Application du WHERE
+
+                # Apply WHERE
                 filtered_rows = all_rows
                 if where_clause:
                     filtered_rows = parse_where_clause(where_clause, all_rows)
-                
-                # Affichage des résultats
+
+                # Display
                 if len(filtered_rows) == 0:
-                    print("📭 Aucune donnée trouvée")
+                    print("📭 No data found")
                 else:
-                    # Calculer la largeur de chaque colonne
                     col_widths = {
                         col: max(len(col), max((len(str(row.get(col, ""))) for row in filtered_rows), default=0))
                         for col in selected_columns
                     }
                     total_width = sum(col_widths.values()) + (len(selected_columns) * 3) + 1
-                    
-                    # Afficher l'en-tête
+
                     print(SEPARATOR * total_width)
                     print(" | ".join(col.ljust(col_widths[col]) for col in selected_columns))
                     print(SEPARATOR * total_width)
-                    
-                    # Afficher les lignes
+
                     for row in filtered_rows:
                         print(" | ".join(str(row.get(col, "")).ljust(col_widths[col]) for col in selected_columns))
-                    
+
                     print(SEPARATOR * total_width)
-                    print(f"({len(filtered_rows)} ligne{'s' if len(filtered_rows) > 1 else ''} retournée{'s' if len(filtered_rows) > 1 else ''})")
-                    
+                    print(f"({len(filtered_rows)} row{'s' if len(filtered_rows) > 1 else ''} returned)")
+
             except json.JSONDecodeError:
-                print(f"❌ Erreur: fichier JSON corrompu pour la table '{table_name}'")
+                print(f"Error: corrupted JSON file for table '{table_name}'")
             except Exception as e:
-                print(f"❌ Erreur lors de la lecture: {e}")
+                print(f"Error reading table: {e}")
         else:
-            print("❌ Erreur de syntaxe")
-            print("Usage: select <colonnes> from <table> [where <condition>];")
-            print("Exemples:")
+            print("Syntax error")
+            print("Usage: select <columns> from <table> [where <condition>];")
+            print("Examples:")
             print("  select * from users;")
-            print("  select nom, age from users where age > 18;")
-            print("  select * from users where nom LIKE %jean%;")
+            print("  select name, age from users where age > 18;")
+            print("  select * from users where name LIKE %jean%;")
 
     # ----------------------------------------
     # UPDATE : Modifier des données
     # ----------------------------------------
     elif cmd_line.startswith("update"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("use: use_db <nom_base>;")
             continue
         
         try:
@@ -864,7 +823,7 @@ while True:
             # Vérification des permissions
             if not check_permission(db, "UPDATE", useDatabase, table_name):
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour modifier '{table_name}' (utilisateur: {current_username})")
+                print(f" Permission denied for modification into '{table_name}' (User: {current_username})")
                 continue
             
             # Trouver SET et WHERE
@@ -883,7 +842,7 @@ while True:
             assignments = {}
             for assign in set_part.split(","):
                 if "=" not in assign:
-                    raise ValueError(f"Assignation invalide: {assign}")
+                    raise ValueError(f"Invalid assignation: {assign}")
                 col, val = assign.split("=", 1)
                 col = col.strip()
                 val = val.strip().strip("'").strip('"')
@@ -892,7 +851,7 @@ while True:
             # Charger la table
             path = f"{DB_PATH}/{useDatabase}/{table_name}.json"
             if not os.path.exists(path):
-                print(f"❌ La table '{table_name}' n'existe pas")
+                print(f"Table '{table_name}' doesn't exists")
                 continue
             
             with open(path, "r", encoding="utf-8") as f:
@@ -913,9 +872,9 @@ while True:
                 rows_to_update = parse_where_clause(where_clause, normalized_rows)
             else:
                 # Confirmation pour UPDATE sans WHERE
-                confirm = input(f"⚠️ Mettre à jour TOUTES les lignes de '{table_name}'? (oui/non): ").strip().lower()
-                if confirm not in ["oui", "yes", "y"]:
-                    print("❌ Opération annulée")
+                confirm = input(f"Update all line in '{table_name}'? (yes/no): ").strip().lower()
+                if confirm not in ["yes", "y"]:
+                    print("Operation aborted")
                     continue
                 rows_to_update = normalized_rows
             
@@ -936,19 +895,19 @@ while True:
             print(f"✓ {updated_count} ligne{'s' if updated_count > 1 else ''} mise{'s' if updated_count > 1 else ''} à jour")
             
         except ValueError as e:
-            print(f"❌ Erreur de syntaxe: {e}")
+            print(f" Syntaxe error : {e}")
             print("Usage: update <table> set col1=val1, col2=val2 [where condition];")
-            print("Exemple: update users set age=26 where nom = Alice;")
+            print("Example: update users set age=26 where nom = Alice;")
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            print(f" Error: {e}")
 
     # ----------------------------------------
     # DELETE : Supprimer des données
     # ----------------------------------------
     elif cmd_line.startswith("delete"):
         if not isDbUse:
-            print("⚠️ Aucune base de données sélectionnée")
-            print("Utilisez: use_db <nom_base>;")
+            print("No database selected")
+            print("use: use_db <nom_base>;")
             continue
         
         try:
@@ -963,7 +922,7 @@ while True:
             # Vérification des permissions
             if not check_permission(db, "DELETE", useDatabase, table_name):
                 current_username = db.current_user.get("username")
-                print(f"🚫 Permission refusée pour supprimer dans '{table_name}' (utilisateur: {current_username})")
+                print(f" Permissin denied for deleting table '{table_name}' (User: {current_username})")
                 continue
             
             # WHERE clause
@@ -973,18 +932,18 @@ while True:
                 if len(parts) > where_index + 1:
                     where_clause = " ".join(parts[where_index + 1:])
                 else:
-                    raise ValueError("Condition WHERE manquante")
+                    raise ValueError("Condition WHERE missed")
             else:
                 # Confirmation pour DELETE sans WHERE
-                confirm = input(f"⚠️ Supprimer TOUTES les lignes de '{table_name}'? (oui/non): ").strip().lower()
-                if confirm not in ["oui", "yes", "y"]:
-                    print("❌ Opération annulée")
+                confirm = input(f" delete all line in '{table_name}'? (yes/no): ").strip().lower()
+                if confirm not in ["yes", "y"]:
+                    print("operation aborted")
                     continue
             
             # Charger la table
             path = f"{DB_PATH}/{useDatabase}/{table_name}.json"
             if not os.path.exists(path):
-                print(f"❌ La table '{table_name}' n'existe pas")
+                print(f" Table '{table_name}' doesn't exists")
                 continue
             
             with open(path, "r", encoding="utf-8") as f:
@@ -1016,28 +975,28 @@ while True:
             print(f"✓ {len(rows_to_delete)} ligne{'s' if len(rows_to_delete) > 1 else ''} supprimée{'s' if len(rows_to_delete) > 1 else ''}")
             
         except ValueError as e:
-            print(f"❌ Erreur de syntaxe: {e}")
+            print(f"Syntax error: {e}")
             print("Usage: delete from <table> [where condition];")
-            print("Exemple: delete from users where age < 18;")
+            print("Example: delete from users where age < 18;")
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            print(f"Error: {e}")
 
             """
-            MY SGBD - Partie 5/5 : Utilisateurs, Permissions et Help
+            MY SGBD - Partie 5/5 : Users, Permissions et Help
 
             Cette partie contient :
-            - Gestion des utilisateurs (CREATE, DROP, SWITCH, LIST)
+            - Gestion des Users (CREATE, DROP, SWITCH, LIST)
             - Gestion des permissions (GRANT, REVOKE, SHOW GRANTS)
             - Commande HELP
             - Gestion des commandes inconnues
             """
 
 # ============================================================================
-# GESTION DES UTILISATEURS
+# GESTION DES UserS
 # ============================================================================
 
     # ----------------------------------------
-    # CREATE USER : Créer un utilisateur
+    # CREATE USER : Créer un User
     # ----------------------------------------
     elif cmd_line.startswith("create_user"):
         try:
@@ -1047,9 +1006,9 @@ while True:
             role = [a for a in args if a.startswith("role=")]
             
             if not password:
-                print("❌ Mot de passe requis")
+                print(" Mot de passe required")
                 print("Usage: create_user nom password=motdepasse [role=user|admin];")
-                print("Exemple: create_user alice password=secret123 role=user;")
+                print("Example: create_user alice password=secret123 role=user;")
                 continue
             
             pwd = password[0].split("=")[1]
@@ -1060,28 +1019,28 @@ while True:
             rl = role[0].split("=")[1] if role else "user"
             
             if rl not in ["user", "admin"]:
-                print("❌ Rôle invalide. Utilisez 'user' ou 'admin'")
+                print("Invalid role. use 'user' ou 'admin'")
                 continue
             
-            # Créer l'utilisateur
+            # Créer l'User
             db.userManager.create_user(name, hashed_pwd, rl)
-            print(f"✓ Utilisateur '{name}' créé avec le rôle '{rl}'")
+            print(f"✓ User '{name}' created with role '{rl}'")
             
         except IndexError:
-            print("❌ Erreur de syntaxe")
+            print("Syntax error")
             print("Usage: create_user nom password=motdepasse [role=user|admin];")
-            print("Exemple: create_user alice password=secret123 role=user;")
+            print("Example: create_user alice password=secret123 role=user;")
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            print(f"Error: {e}")
 
     # ----------------------------------------
-    # LIST USER : Lister les utilisateurs
+    # LIST USER : Lister les Users
     # ----------------------------------------
     elif cmd_line.startswith("list_user"):
         db.userManager.list_users()
 
     # ----------------------------------------
-    # DROP USER : Supprimer un utilisateur
+    # DROP USER : Supprimer un User
     # ----------------------------------------
     elif cmd_line.startswith("drop_user"):
         try:
@@ -1089,24 +1048,24 @@ while True:
             
             # Empêcher la suppression de son propre compte
             if username == db.current_user.get("username"):
-                print("❌ Vous ne pouvez pas supprimer votre propre compte")
-                print("Connectez-vous avec un autre utilisateur pour supprimer ce compte")
+                print("You can't delete your own account")
+                print("Connect to an other account to delete this account")
                 continue
             
             # Demander confirmation
-            confirm = input(f"⚠️ Supprimer l'utilisateur '{username}' ? (oui/non): ").strip().lower()
-            if confirm in ["oui", "yes", "y"]:
+            confirm = input(f" Supprimer l'User '{username}' ? (yes/no): ").strip().lower()
+            if confirm in ["yes", "y"]:
                 db.userManager.drop_user(username)
             else:
-                print("❌ Opération annulée")
+                print("operation aborted")
                 
         except IndexError:
-            print("❌ Nom d'utilisateur requis")
-            print("Usage: drop_user nom_utilisateur;")
-            print("Exemple: drop_user alice;")
+            print("Username required")
+            print("Usage: drop_user nom_User;")
+            print("Example: drop_user alice;")
 
     # ----------------------------------------
-    # SWITCH USER : Changer d'utilisateur
+    # SWITCH USER : Changer d'User
     # ----------------------------------------
     elif cmd_line.startswith("switch_user_to"):
         try:
@@ -1121,7 +1080,7 @@ while True:
             user = db.userManager.switch_user_to(name, hashed_pwd)
             
             if user:
-                # Mise à jour de l'utilisateur actuel
+                # Mise à jour de l'User actuel
                 db.current_user = user
                 userUsingDb = f"user:\033[32m{name}\033[0m"
                 
@@ -1133,12 +1092,12 @@ while True:
                 
                 print(f"✓ Connecté en tant que '{name}'")
             else:
-                print("❌ Nom d'utilisateur ou mot de passe incorrect")
+                print(" Nom d'User ou mot de passe incorrect")
                 
         except (IndexError, ValueError):
-            print("❌ Erreur de syntaxe")
-            print("Usage: switch_user_to nom_utilisateur password=motdepasse;")
-            print("Exemple: switch_user_to alice password=secret123;")
+            print("Syntax error")
+            print("Usage: switch_user_to nom_User password=motdepasse;")
+            print("Example: switch_user_to alice password=secret123;")
 
 # ============================================================================
 # GESTION DES PERMISSIONS
@@ -1164,8 +1123,8 @@ while True:
                 target = raw_target
             
             if not db_name:
-                print("❌ Aucune base de données sélectionnée et aucune base qualifiée")
-                print("Utilisez: grant <perm> on <db.table> to <user>;")
+                print("No database selected")
+                print("use: grant <perm> on <db.table> to <user>;")
                 continue
             
             caller_username = db.current_user.get("username")
@@ -1174,13 +1133,13 @@ while True:
             # Accorder la permission
             db.permManager.grant(db_name, target, username, permission, 
                                caller_username=caller_username, caller_role=caller_role)
-            print(f"✓ Permission '{permission}' accordée à '{username}' sur '{raw_target}'")
+            print(f"✓ Permission '{permission}' deny to '{username}' on '{raw_target}'")
             
         except (ValueError, IndexError):
-            print("❌ Erreur de syntaxe")
-            print("Usage: grant <PERMISSION> on <table|db.table|*> to <utilisateur>;")
+            print("Syntax error")
+            print("Usage: grant <PERMISSION> on <table|db.table|*> to <User>;")
             print("Permissions: SELECT, INSERT, UPDATE, DELETE, DROP, ALL, USAGE")
-            print("Exemples:")
+            print("Examples:")
             print("  grant SELECT on users to alice;")
             print("  grant ALL on ma_base.* to bob;")
 
@@ -1204,8 +1163,8 @@ while True:
                 target = raw_target
             
             if not db_name:
-                print("❌ Aucune base de données sélectionnée et aucune base qualifiée")
-                print("Utilisez: revoke <perm> on <db.table> from <user>;")
+                print("No database selected")
+                print("use: revoke <perm> on <db.table> from <user>;")
                 continue
             
             caller_username = db.current_user.get("username")
@@ -1214,12 +1173,12 @@ while True:
             # Révoquer la permission
             db.permManager.revoke(db_name, target, username, permission, 
                                 caller_username=caller_username, caller_role=caller_role)
-            print(f"✓ Permission '{permission}' révoquée pour '{username}' sur '{raw_target}'")
+            print(f"✓ Permission '{permission}' revoke for '{username}' on '{raw_target}'")
             
         except (ValueError, IndexError):
-            print("❌ Erreur de syntaxe")
-            print("Usage: revoke <PERMISSION> on <table|db.table|*> from <utilisateur>;")
-            print("Exemples:")
+            print("Syntax error")
+            print("Usage: revoke <PERMISSION> on <table|db.table|*> from <User>;")
+            print("Examples:")
             print("  revoke SELECT on users from alice;")
             print("  revoke ALL on ma_base.* from bob;")
 
@@ -1239,22 +1198,22 @@ while True:
                 db_name = parts[1]
                 username = parts[2]
             else:
-                print("❌ Erreur de syntaxe")
-                print("Usage: show_grants <utilisateur>  OU  show_grants <db> <utilisateur>;")
-                print("Exemples:")
+                print("Syntax error")
+                print("Usage: show_grants <User>  OU  show_grants <db> <User>;")
+                print("Examples:")
                 print("  show_grants alice;")
                 print("  show_grants ma_base alice;")
                 continue
             
             if not db_name:
-                print("❌ Aucune base de données sélectionnée et aucune base spécifiée")
+                print("No database selected")
                 continue
             
             # Afficher les permissions
             db.permManager.show_grants(db_name, username)
             
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            print(f"Error: {e}")
 
 # ============================================================================
 # AIDE ET COMMANDES INCONNUES
@@ -1267,11 +1226,17 @@ while True:
         db.show_help()
 
     # ----------------------------------------
+    # LIST COMMANDS : Show list of commands (alias)
+    # ----------------------------------------
+    elif cmd_line.startswith("list_commands") or cmd_line.startswith("commands"):
+        db.show_help()
+
+    # ----------------------------------------
     # Commande inconnue
     # ----------------------------------------
     else:
-        print(f"❌ Commande '{cmd_line}' non reconnue")
-        print("Tapez 'help' pour voir les commandes disponibles")
+        print(f" Command '{cmd_line}' not found")
+        print("Type 'help' to list all available commands")
 
 # ============================================================================
 # FIN DE LA PARTIE 5/5 - CODE COMPLET

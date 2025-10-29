@@ -1,20 +1,14 @@
 {
-    "__owner__": null,
-    "root": {
-        "our": {
-            "*": [
-                "ALL"
-            ],
-            "we": [
-                "ALL"
-            ]
-        }
-    },
-    "diary": {
-        "our": {
-            "we": [
-                "READ"
-            ]
-        }
+  "__owner__": "diary",
+  "root": {
+    "our": {
+      "*": ["ALL"],
+      "we": ["ALL"]
     }
+  },
+  "diary": {
+    "our": {
+      "we": ["SELECT"]
+    }
+  }
 }

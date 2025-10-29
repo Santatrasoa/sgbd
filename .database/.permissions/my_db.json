@@ -1,20 +1,3 @@
 {
-    "root": {
-        "databases": [
-            "ALL"
-        ],
-        "tables": {
-            "my_table": [
-                "ALL"
-            ]
-        }
-    },
-    "Diary": {
-        "databases": [],
-        "tables": {
-            "my_db": [
-                "READ"
-            ]
-        }
-    }
+    "__owner__": null
 }

@@ -1,41 +1,12 @@
 {
+    "__owner__": null,
     "root": {
-        "databases": [
-            "ALL"
-        ],
-        "tables": {
-            "Test_My": [
+        "My": {
+            "dd": [
                 "ALL"
             ],
-            "Test_My_1": [
+            "dd_1": [
                 "ALL"
-            ]
-        },
-        "My": {
-            "diary": [
-                "ALL"
-            ]
-        }
-    },
-    "Diary": {
-        "databases": [
-            "Test"
-        ],
-        "tables": {
-            "My": [
-                "READ"
-            ]
-        }
-    },
-    "test": {
-        "My": {
-            "tables": {
-                "My": [
-                    "READ"
-                ]
-            },
-            "My": [
-                "READ"
             ]
         }
     }

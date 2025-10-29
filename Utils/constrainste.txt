@@ -1,7 +1,7 @@
-Not_null
-Unique
-Primary_key
-Foreign_key
-Check
-Default
-Auto_increment
+not_null
+unique
+primary_key
+foreign_key
+check
+default
+auto_increment
