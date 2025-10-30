@@ -1,0 +1,7 @@
+{
+  "owner": "diary",
+  "database_permissions": {},
+  "table_permissions": {
+    "diary": {}
+  }
+}

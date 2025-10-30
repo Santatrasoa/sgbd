@@ -1,3 +1,14 @@
+list_db;
+list_database;
 create_database my;
-create_database my__;
-create_database my;
+switch_user_to my password=12345678;
+create_database my_db;
+list_user;
+use_db my_db;
+create_table m;
+create_table m();
+grant SELECT on m to diary;
+switch_user_to diary password=;
+leave_db;
+use_db my_db;
+exit

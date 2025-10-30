@@ -1,0 +1,23 @@
+{
+  "owner": "root",
+  "database_permissions": {
+    "root": [
+      "READ"
+    ],
+    "diary": [
+      "READ"
+    ]
+  },
+  "table_permissions": {
+    "root": {
+      "my": [
+        "ALL"
+      ]
+    },
+    "diary": {
+      "my": [
+        "SELECT"
+      ]
+    }
+  }
+}

@@ -26,12 +26,6 @@ class Db:
     def create_DB(self, dbName: str) -> bool:
         """
         Crée une nouvelle base de données
-        
-        Args:
-            dbName: Nom de la base de données
-            
-        Returns:
-            bool: True si créée avec succès, False sinon
         """
         if not dbName or not dbName.strip():
             print("❌ Database name cannot be empty")
@@ -45,23 +39,59 @@ class Db:
         
         try:
             path.mkdir(parents=True, exist_ok=False)
-            
-            # Définir le créateur comme propriétaire avec tous les droits
-            
-            username = self.current_user["username"]
+
+            username = self.current_user.get("username", "root")
+            print(f"[create_DB] username before set_owner = '{username}'")
+
+            # Crée le fichier de permissions avec la nouvelle structure
             self.permManager.set_owner(dbName, username)
-            # self.permManager.grant(
-            #     dbName, "*", username, "ALL",
-            #     caller_username=username,
-            #     caller_role=self.current_user.get("role")
-            # )
-            
+
+            # Vérification du contenu après création
+            perm_path = Path(self.dbPath) / dbName / "permissions.json"
+            if perm_path.exists():
+                with open(perm_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                print(f"[DEBUG] permissions.json content: {json.dumps(data, indent=2)}")
+
             print(f"✓ Database '{dbName}' created successfully")
             return True
             
         except Exception as e:
-            print(f"❌ error occurd in the creation of database{e}")
+            print(f"❌ error occurred in the creation of database: {e}")
             return False
+
+            """
+            Crée une nouvelle base de données
+            
+            Args:
+                dbName: Nom de la base de données
+                
+            Returns:
+                bool: True si créée avec succès, False sinon
+            """
+            if not dbName or not dbName.strip():
+                print("❌ Database name cannot be empty")
+                return False
+            
+            path = Path(f"{self.dbPath}/{dbName}")
+            
+            if path.exists():
+                print(f"❌ Database '{dbName}' already exists")
+                return False
+            
+            try:
+                path.mkdir(parents=True, exist_ok=False)
+                
+                # Définir le créateur comme propriétaire avec tous les droits
+                
+                username = self.current_user["username"]
+                self.permManager.set_owner(dbName, username)
+                print(f"✓ Database '{dbName}' created successfully")
+                return True
+                
+            except Exception as e:
+                print(f"❌ error occurd in the creation of database{e}")
+                return False
 
     def list_database(self, path: str) -> List[str]:
         """

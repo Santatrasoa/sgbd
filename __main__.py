@@ -1133,7 +1133,7 @@ while True:
             # Accorder la permission
             db.permManager.grant(db_name, target, username, permission, 
                                caller_username=caller_username, caller_role=caller_role)
-            print(f"✓ Permission '{permission}' deny to '{username}' on '{raw_target}'")
+            print(f"✓ Permission '{permission}' allowed to '{username}' on '{raw_target}'")
             
         except (ValueError, IndexError):
             print("Syntax error")
