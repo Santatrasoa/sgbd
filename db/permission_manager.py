@@ -3,18 +3,26 @@ from pathlib import Path
 
 
 class PermissionManager:
+
+    # Structure JSON recommandée pour le fichier de permissions:
     """
-    Permissions format:
     {
-        "alice": {
-            "database1": {
-                "table1": ["READ", "WRITE"],
-                "table2": ["READ"]
-            }
+    "owner": "username",
+    "database_permissions": {
+        "user1": ["READ", "WRITE"],
+        "user2": ["ALL"]
+    },
+    "table_permissions": {
+        "user1": {
+        "table1": ["SELECT", "INSERT"],
+        "table2": ["SELECT"]
+        },
+        "user2": {
+        "table1": ["ALL"]
         }
     }
+    }
     """
-
     VALID_PERMISSIONS = {"READ", "WRITE", "DELETE", "UPDATE", "ALL"}
 
     def __init__(self, db_path: str):
@@ -29,14 +37,6 @@ class PermissionManager:
             with open(path, "w") as f:
                 json.dump({"__owner__": None}, f, indent=4)
         return path
-
-    def set_owner(self, db_name, owner_username):
-        path = self.get_permission_file(db_name)
-        with open(path, "r") as f:
-            perms = json.load(f)
-        perms["__owner__"] = owner_username
-        with open(path, "w") as f:
-            json.dump(perms, f, indent=4)
 
     def get_owner(self, db_name):
         path = self.get_permission_file(db_name)
@@ -141,13 +141,15 @@ class PermissionManager:
             else:
                 permissions = {
                     "owner": "",
-                    "database_permissions": {},
-                    "table_permissions": {}
+                    "database_permissions": [],
+                    "table_permissions": [],
+                    "other" : []
                 }
             
             # Définir le propriétaire
             permissions["owner"] = username
-            
+            permissions["database_permissions"] = ["All"]
+            permissions["table_permissions"] = ["ALL"]            
             # Sauvegarder
             with open(perm_file, "w", encoding="utf-8") as f:
                 json.dump(permissions, f, indent=2, ensure_ascii=False)
@@ -174,10 +176,10 @@ class PermissionManager:
         
         try:
             perm_file.unlink()
-            print(f"✓ Permissions de '{db_name}' nettoyées")
+            print(f"✓ Permissions of '{db_name}' clean")
             return True
         except Exception as e:
-            print(f"❌ Erreur lors du nettoyage des permissions: {e}")
+            print(f"❌ error occurd when cleaning permission: {e}")
             return False
 
     def cleanup_table_permissions(self, db_name: str, table_name: str) -> bool:
@@ -339,26 +341,6 @@ class PermissionManager:
         except Exception:
             return False
 
-
-            # Structure JSON recommandée pour le fichier de permissions:
-            """
-            {
-            "owner": "username",
-            "database_permissions": {
-                "user1": ["READ", "WRITE"],
-                "user2": ["ALL"]
-            },
-            "table_permissions": {
-                "user1": {
-                "table1": ["SELECT", "INSERT"],
-                "table2": ["SELECT"]
-                },
-                "user2": {
-                "table1": ["ALL"]
-                }
-            }
-            }
-            """
             if username in perms and db_name in perms[username] and table in perms[username][db_name]:
                 if permission in perms[username][db_name][table]:
                     perms[username][db_name][table].remove(permission)

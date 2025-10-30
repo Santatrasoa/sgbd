@@ -1,0 +1,9 @@
+{
+  "owner": "root",
+  "database_permissions": [
+    "All"
+  ],
+  "table_permissions": [
+    "ALL"
+  ]
+}

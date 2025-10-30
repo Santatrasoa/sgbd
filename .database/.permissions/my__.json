@@ -1,7 +1,7 @@
 {
     "__owner__": null,
-    "bob": {
-        "ma_db": {
+    "root": {
+        "my__": {
             "*": [
                 "ALL"
             ]

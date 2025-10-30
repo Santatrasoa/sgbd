@@ -47,19 +47,20 @@ class Db:
             path.mkdir(parents=True, exist_ok=False)
             
             # Définir le créateur comme propriétaire avec tous les droits
+            
             username = self.current_user["username"]
             self.permManager.set_owner(dbName, username)
-            self.permManager.grant(
-                dbName, "*", username, "ALL",
-                caller_username=username,
-                caller_role=self.current_user.get("role")
-            )
+            # self.permManager.grant(
+            #     dbName, "*", username, "ALL",
+            #     caller_username=username,
+            #     caller_role=self.current_user.get("role")
+            # )
             
             print(f"✓ Database '{dbName}' created successfully")
             return True
             
         except Exception as e:
-            print(f"❌ Erreur lors de la création de la base de données: {e}")
+            print(f"❌ error occurd in the creation of database{e}")
             return False
 
     def list_database(self, path: str) -> List[str]:
