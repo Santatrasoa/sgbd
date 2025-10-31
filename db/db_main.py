@@ -3,9 +3,12 @@ import os
 import shutil
 import json
 from pathlib import Path
+from utils.config_loader import load_config
 from typing import Dict, List, Any, Optional
 from .user_manager import UserManager
 from .permission_manager import PermissionManager
+
+config = load_config()
 
 class Db:
     def __init__(self, db_path: str = ".database", crypto=None):
@@ -13,7 +16,10 @@ class Db:
         self.crypto = crypto
         self.userManager = UserManager(self.dbPath, self.crypto)
         self.permManager = PermissionManager(self.dbPath, self.crypto)
-        self.current_user = {"username": "root", "role": "admin"}
+        self.current_user = {
+            "username": config["default_admin"]["username"],
+            "role": config["default_admin"]["role"]
+        }
         self.dbPath.mkdir(exist_ok=True)
         self._migrate_json_to_enc()
 

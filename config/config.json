@@ -1,11 +1,12 @@
 {
   "db_path": ".database",
+  "history_path": ".database/.history",
   "default_prompt": "⇒",
   "separator_char": "—",
-  "history_file": ".history",
+  "history_dir": ".history",
   "max_history_size": 1000,
   "default_admin": {
-    "username": "my",
+    "username": "root",
     "role": "admin"
   },
   "allowed_data_types": [
