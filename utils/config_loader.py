@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 def load_config():
-    config_path = Path("config.json")
+    config_path = Path("config/config.json")
     default = {
         "db_path": ".database",
         "default_prompt": "m¥⇒",

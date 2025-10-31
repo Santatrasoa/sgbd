@@ -1,6 +1,6 @@
 {
   "db_path": ".database",
-  "default_prompt": "m¥⇒",
+  "default_prompt": "⇒",
   "separator_char": "—",
   "history_file": ".history",
   "max_history_size": 1000,
