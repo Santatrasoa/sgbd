@@ -19,7 +19,6 @@ def load_config():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 user_config = json.load(f)
-                # Fusion profonde
                 for key, value in user_config.items():
                     if key in default and isinstance(default[key], dict) and isinstance(value, dict):
                         default[key].update(value)

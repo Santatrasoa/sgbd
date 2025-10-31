@@ -5,7 +5,7 @@
   "history_file": ".history",
   "max_history_size": 1000,
   "default_admin": {
-    "username": "root",
+    "username": "my",
     "role": "admin"
   },
   "allowed_data_types": [
@@ -21,13 +21,13 @@
     "bit"
   ],
   "allowed_constraints": {
-    "not_null": "Not_null",
+    "not_null": "Not null",
     "unique": "Unique",
-    "primary_key": "Primary_key",
-    "foreign_key": "Foreign_key",
+    "primary_key": "Primary key",
+    "foreign_key": "Foreign key",
     "check": "Check",
     "default": "Default",
-    "auto_increment": "Auto_increment"
+    "auto_increment": "Auto increment"
   },
   "permissions": [
     "SELECT",
