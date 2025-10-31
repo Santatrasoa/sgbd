@@ -1,11 +1,13 @@
-import os, json
+# db/user_manager.py
+import os
+import json
 from datetime import datetime
-from utils import hash_password
+from utils.helpers import hash_password  # ← Utilise ton helper
 
 class UserManager:
     def __init__(self, db_path):
-        self.user_file_path = f"{db_path}/.users/users.json"
-        os.makedirs(f"{db_path}/.users", exist_ok=True)
+        self.user_file_path = f"{db_path}/users.json"
+        os.makedirs(os.path.dirname(self.user_file_path), exist_ok=True)
         if not os.path.exists(self.user_file_path):
             root_user = {
                 "username": "root",
@@ -13,18 +15,22 @@ class UserManager:
                 "role": "admin",
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            with open(self.user_file_path, "w") as f:
+            with open(self.user_file_path, "w", encoding="utf-8") as f:
                 json.dump({"users": [root_user]}, f, indent=4)
 
+    def _load(self):
+        with open(self.user_file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _save(self, data):
+        with open(self.user_file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+
     def create_user(self, username, password, role="user"):
-        with open(self.user_file_path, "r") as f:
-            data = json.load(f)
-
-        for u in data["users"]:
-            if u["username"] == username:
-                print("user already exists")
-                return
-
+        data = self._load()
+        if any(u["username"] == username for u in data["users"]):
+            print(f"User '{username}' already exists")
+            return
         new_user = {
             "username": username,
             "password": hash_password(password),
@@ -32,48 +38,42 @@ class UserManager:
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         data["users"].append(new_user)
-        with open(self.user_file_path, "w") as f:
-            json.dump(data, f, indent=4)
-        print(f"user {username} created")
+        self._save(data)
+        print(f"User '{username}' created with role '{role}'")
 
     def list_users(self):
-        with open(self.user_file_path, "r") as f:
-            data = json.load(f)
+        data = self._load()
         users = data.get("users", [])
         if not users:
-            print("no users found")
+            print("No users found")
             return
         max_len = max(len(u["username"]) for u in users)
-        sep = "—" * (max_len + 30)
+        sep = "—" * (max_len + 35)
         print(sep)
-        print("   list of users")
+        print(" LIST OF USERS")
         print(sep)
-        print(f"{'Username':<{max_len}} | Role | Created_at")
+        print(f"{'Username':<{max_len}} | {'Role':<6} | Created At")
         print(sep)
         for u in users:
-            print(f"{u['username']:<{max_len}} | {u['role']} | {u['created_at']}")
+            print(f"{u['username']:<{max_len}} | {u['role']:<6} | {u['created_at']}")
         print(sep)
 
     def drop_user(self, username):
-        with open(self.user_file_path, "r") as f:
-            data = json.load(f)
-
-        new_users = [u for u in data["users"] if u["username"] != username]
-        if len(new_users) == len(data["users"]):
-            print("user not found")
+        data = self._load()
+        original_count = len(data["users"])
+        data["users"] = [u for u in data["users"] if u["username"] != username]
+        if len(data["users"]) == original_count:
+            print(f"User '{username}' not found")
             return
-
-        data["users"] = new_users
-        with open(self.user_file_path, "w") as f:
-            json.dump(data, f, indent=4)
-        print(f"user {username} removed")
+        self._save(data)
+        print(f"User '{username}' removed")
 
     def switch_user_to(self, username, password):
-        with open(self.user_file_path, "r") as f:
-            data = json.load(f)
+        data = self._load()
+        hashed = hash_password(password)
         for u in data["users"]:
-            if u["username"] == username and u["password"] == hash_password(password):
-                print(f"user '{username}' logged in")
-                return u
-        print("invalid username or password")
+            if u["username"] == username and u["password"] == hashed:
+                print(f"Switched to user '{username}'")
+                return {"username": u["username"], "role": u["role"]}
+        print("Invalid username or password")
         return None

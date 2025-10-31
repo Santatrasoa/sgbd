@@ -1,7 +1,0 @@
-not_null
-unique
-primary_key
-foreign_key
-check
-default
-auto_increment
