@@ -10,7 +10,7 @@ def handle_db_commands(cmd, cmd_line, db: Db, userUsingDb, DEFAULT_PROMPT, SEPAR
 
     if cmd_line in ["use_database", "use_db"]:
         name = cmd.split(" ", 1)[1].strip()
-        dirs = db.list_database(db.dbPath)
+        dirs = db.list_database()
         if name in dirs:
             if db.permManager.has_db_permission(name, db.current_user["username"], "USAGE"):
                 print(f"Database '{name}' selected")

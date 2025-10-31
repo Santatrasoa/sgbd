@@ -2,6 +2,7 @@
 import os
 import readline
 from utils.config_loader import load_config
+from utils.crypto import CryptoManager
 from db.db_main import Db
 from commands import *
 
@@ -9,8 +10,14 @@ config = load_config()
 DB_PATH = config["db_path"]
 DEFAULT_PROMPT = config["default_prompt"]
 SEPARATOR = config["separator_char"]
+USER = config["default_admin"]["username"]
 
-db = Db(DB_PATH)
+# === MOT DE PASSE PAR DÉFAUT ===
+DEFAULT_MASTER_PASSWORD = "mon_mot_de_passe_secret_2025"
+crypto = CryptoManager(DEFAULT_MASTER_PASSWORD)
+
+
+db = Db(DB_PATH, crypto=crypto)
 useDatabase = ""
 isDbUse = False
 userUsingDb = f"user:\033[32m{db.current_user['username']}\033[0m"
@@ -24,6 +31,7 @@ print("╔═══════════════════════�
 print("║     Welcome to MY - Your personal DBMS                       ║")
 print("╚══════════════════════════════════════════════════════════════╝")
 print("Type 'help'\n")
+print(USER)
 
 while True:
     print("")

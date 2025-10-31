@@ -138,19 +138,29 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
             traceback.print_exc()    
 
     elif cmd_line == "add_into_table":
-        try:
-            getData = " ".join(cmd.split(" ")[1:]).strip().split("(")
-            table_name = getData[0].strip()
-            values_str = getData[1].replace(")", "").strip()
-            values = [v.strip() for v in values_str.split(",")]
-            pathToFile = f"{db.dbPath}/{useDatabase}/{table_name}.json"
-            if not check_permission(db, "INSERT", useDatabase, table_name):
-                print(f"Permission denied to insert into '{table_name}' (user: {db.current_user['username']})")
-                return
-            db.analyse_data(pathToFile, values)
-        except IndexError:
-            print("Syntax error")
-            print("Usage: add_into_table nom_table(col1=val1, col2=val2, ...);")
+        if " " not in cmd:
+            print("Usage: add_into_table <table>(col=value, ...);")
+            return
+        parts = cmd.split(" ", 1)[1].strip()
+        if "(" not in parts or ")" not in parts:
+            print("Invalid syntax. Use: add_into_table table(col=value, ...);")
+            return
+        table_part, values_part = parts.split("(", 1)
+        table_name = table_part.strip()
+        values_str = values_part.rstrip(")").strip()
+        if not values_str:
+            print("No values provided")
+            return
+        values = [v.strip() for v in values_str.split(",") if v.strip()]
+        if not values:
+            print("No valid values")
+            return
+
+        # CORRIGÉ : passe db_name, table_name, values
+        success = db.analyse_data(useDatabase, table_name, values)
+        if success:
+            print("Data added successfully")
+
 
     elif cmd_line == "drop_table":
         tableToRemove = cmd[10:].strip()
@@ -163,31 +173,31 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
         else:
             print("Operation cancelled")
 
-    elif cmd_line == "list_table":
-        current_username = db.current_user.get("username")
-        role = db.current_user.get("role")
-        if role != "admin" and not db.permManager.user_has_any_permission(useDatabase, current_username):
-            print(f"Permission denied to read table in'{useDatabase}' (User: {current_username})")
+    elif cmd_line in ["list_table", "list_tables"]:
+        if not isDbUse:
+            print("No database selected")
             return
-        path = f"{db.dbPath}/{useDatabase}"
-        tables = db.list_table(path)
-        if len(tables) == 0:
-            print("No tables found in this database")
-        else:
-            l = max([len(t.replace('.json', '')) for t in tables] + [15])
-            print(SEPARATOR * (l + 4))
-            print(f"{'In the table ' + useDatabase.upper():^{l + 4}}")
-            print(SEPARATOR * (l + 4))
-            for t in sorted(tables):
-                table_name = t.replace('.json', '')
-                print(f" {table_name:<{l}}")
-            print(SEPARATOR * (l + 4))
-            print(f"Total: {len(tables)} table{'s' if len(tables) > 1 else ''}")
-
+        tables = db.list_table(useDatabase)  # ← CORRIGÉ
+        if not tables:
+            print("No tables found")
+            return
+        max_len = max(len(t) for t in tables)
+        sep = SEPARATOR * (max_len + 10)
+        print(sep)
+        print(f" TABLES IN {useDatabase} ".center(len(sep), " "))
+        print(sep)
+        for t in sorted(tables):
+            print(f" {t}")
+        print(sep)
+        print(f"Total: {len(tables)} table{'s' if len(tables) > 1 else ''}")
+            
     elif cmd_line == "describe_table":
-        table_name = cmd[15:].strip()
-        if not check_permission(db, "SELECT", useDatabase, table_name):
-            print(f"Permission denied to describe '{table_name}' (user: {db.current_user['username']})")
+        if " " not in cmd:
+            print("Usage: describe_table <name>;")
             return
-        pathToFile = f"{db.dbPath}/{useDatabase}/{table_name}.json"
-        db.describe_table(pathToFile)
+        table_name = cmd.split(" ", 1)[1].strip()
+        if not table_name:
+            print("Table name cannot be empty")
+            return
+        # CORRIGÉ : passe db_name + table_name
+        db.describe_table(useDatabase, table_name)

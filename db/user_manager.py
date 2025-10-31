@@ -1,30 +1,33 @@
 # db/user_manager.py
-import os
-import json
+from pathlib import Path
 from datetime import datetime
-from utils.helpers import hash_password  # ← Utilise ton helper
+from utils.helpers import hash_password
 
 class UserManager:
-    def __init__(self, db_path):
-        self.user_file_path = f"{db_path}/users.json"
-        os.makedirs(os.path.dirname(self.user_file_path), exist_ok=True)
-        if not os.path.exists(self.user_file_path):
-            root_user = {
+    def __init__(self, db_path, crypto):
+        self.db_path = Path(db_path)
+        self.user_file = self.db_path / "users.enc"
+        self.crypto = crypto
+        self.db_path.mkdir(exist_ok=True)
+        self._init_root()
+
+    def _init_root(self):
+        if not self.user_file.exists():
+            root = {
                 "username": "root",
                 "password": hash_password("root"),
                 "role": "admin",
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            with open(self.user_file_path, "w", encoding="utf-8") as f:
-                json.dump({"users": [root_user]}, f, indent=4)
+            self._save({"users": [root]})
 
     def _load(self):
-        with open(self.user_file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        if not self.user_file.exists():
+            return {"users": []}
+        return self.crypto.decrypt(self.user_file.read_bytes())
 
     def _save(self, data):
-        with open(self.user_file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        self.user_file.write_bytes(self.crypto.encrypt(data))
 
     def create_user(self, username, password, role="user"):
         data = self._load()
@@ -39,6 +42,7 @@ class UserManager:
         }
         data["users"].append(new_user)
         self._save(data)
+        print(f"User '{username}' created")
 
     def list_users(self):
         data = self._load()
@@ -73,6 +77,6 @@ class UserManager:
         for u in data["users"]:
             if u["username"] == username and u["password"] == hashed:
                 print(f"Switched to user '{username}'")
-                return {"username": u["username"], "role": u["role"]}
+                return {"username": username, "role": u["role"]}
         print("Invalid username or password")
         return None

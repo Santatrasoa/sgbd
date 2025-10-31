@@ -7,68 +7,160 @@ from typing import Dict, List, Any, Optional
 from .user_manager import UserManager
 from .permission_manager import PermissionManager
 
-
 class Db:
-    """Classe principale pour la gestion de base de données"""
-
-    def __init__(self, db_path: str = ".database"):
-        self.dbPath = db_path
-        self.userManager = UserManager(self.dbPath)
-        self.permManager = PermissionManager(self.dbPath)
+    def __init__(self, db_path: str = ".database", crypto=None):
+        self.dbPath = Path(db_path)
+        self.crypto = crypto
+        self.userManager = UserManager(self.dbPath, self.crypto)
+        self.permManager = PermissionManager(self.dbPath, self.crypto)
         self.current_user = {"username": "root", "role": "admin"}
-        Path(self.dbPath).mkdir(exist_ok=True)
+        self.dbPath.mkdir(exist_ok=True)
+        self._migrate_json_to_enc()
 
-    # =============================
-    # DATABASE
-    # =============================
+    def _migrate_json_to_enc(self):
+        for json_file in self.dbPath.rglob("*.json"):
+            enc_file = json_file.with_suffix(".enc")
+            if not enc_file.exists():
+                print(f"Migrating: {json_file} → {enc_file.name}")
+                try:
+                    data = json.loads(json_file.read_text(encoding="utf-8"))
+                    enc_file.write_bytes(self.crypto.encrypt(data))
+                    json_file.unlink()
+                except Exception as e:
+                    print(f"Skip: {e}")
+
+    def _get_table_path(self, db_name: str, table_name: str) -> Path:
+        return self.dbPath / db_name / f"{table_name}.enc"
 
     def create_DB(self, dbName: str) -> bool:
-        """Crée une nouvelle base de données"""
-        if not dbName or not dbName.strip():
-            print("Database name cannot be empty")
-            return False
-        path = Path(f"{self.dbPath}/{dbName}")
+        path = self.dbPath / dbName
         if path.exists():
             print(f"Database '{dbName}' already exists")
             return False
-        try:
-            path.mkdir(parents=True, exist_ok=False)
-            username = self.current_user["username"]
-            self.permManager.set_owner(dbName, username)
-            print(f"Database '{dbName}' created successfully")
-            return True
-        except Exception as e:
-            print(f"Error creating database: {e}")
-            return False
+        path.mkdir(parents=True)
+        self.permManager.set_owner(dbName, self.current_user["username"])
+        print(f"Database '{dbName}' created successfully")
+        return True
 
-    def list_database(self, path: str = None) -> List[str]:
-        """Liste toutes les bases de données disponibles"""
-        directory = Path(path or self.dbPath)
-        if not directory.exists():
-            return []
-        return [
-            item.name for item in directory.iterdir()
-            if item.is_dir() and not item.name.startswith(".")
-        ]
+    def list_database(self):
+        return [p.name for p in self.dbPath.iterdir() if p.is_dir()]
 
     def drop_database(self, databaseName: str) -> bool:
-        """Supprime une base de données"""
-        if not databaseName or not databaseName.strip():
-            print("Database name cannot be empty")
-            return False
-        path = Path(f"{self.dbPath}/{databaseName}")
+        path = self.dbPath / databaseName
         if not path.exists():
             print(f"Database '{databaseName}' does not exist")
             return False
+        shutil.rmtree(path)
+        self.permManager.cleanup_database_permissions(databaseName)
+        print(f"Database '{databaseName}' removed")
+        return True
+
+    def create_Table(self, dbName: str, name: str, attribute: Dict[str, Any]) -> bool:
+        path = self._get_table_path(dbName, name)
+        if path.exists():
+            print(f"Table '{name}' already exists")
+            return False
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.crypto.encrypt(attribute))
+        self.permManager.grant(dbName, name, self.current_user["username"], "ALL",
+                               self.current_user["username"], self.current_user["role"])
+        print(f"Table '{name}' created")
+        return True
+
+    def list_table(self, db_name: str) -> List[str]:
+        """Liste toutes les tables (.enc) dans une base"""
+        db_dir = self.dbPath / db_name
+        if not db_dir.exists():
+            return []
+        return [f.stem for f in db_dir.glob("*.enc")]
+
+    def load_table(self, db_name: str, table_name: str) -> dict:
+        path = self._get_table_path(db_name, table_name)
+        if not path.exists():
+            raise FileNotFoundError()
+        return self.crypto.decrypt(path.read_bytes())
+
+    def save_table(self, db_name: str, table_name: str, data: dict):
+        path = self._get_table_path(db_name, table_name)
+        path.write_bytes(self.crypto.encrypt(data))
+
+    def drop_table(self, dbName: str, tableName: str) -> bool:
+        path = self._get_table_path(dbName, tableName)
+        if not path.exists():
+            print(f"Table '{tableName}' does not exist")
+            return False
+        path.unlink()
+        self.permManager.cleanup_table_permissions(dbName, tableName)
+        print(f"Table '{tableName}' removed")
+        return True
+
+    def analyse_data(self, db_name: str, table_name: str, data: List[str]) -> bool:
+        path = self._get_table_path(db_name, table_name)
+        if not path.exists():
+            print("Table does not exist")
+            return False
         try:
-            shutil.rmtree(path)
-            self.permManager.cleanup_database_permissions(databaseName)
-            print(f"Database '{databaseName}' removed successfully")
+            content = self.crypto.decrypt(path.read_bytes())
+            caracteristiques = content.get("caracteristique", {})
+            constraints = content.get("constraint", {})
+            addedData = {}
+            for item in data:
+                if "=" not in item:
+                    print(f"Syntax error in '{item}'")
+                    return False
+                col, value = item.split("=", 1)
+                col, value = col.strip(), value.strip().strip("'\"")
+                if col not in caracteristiques:
+                    print(f"Column '{col}' does not exist")
+                    return False
+                addedData[col] = value
+            # Validation contraintes...
+            content["data"].append(addedData)
+            self.save_table(db_name, table_name, content)
+            print("Data added")
             return True
         except Exception as e:
-            print(f"Error deleting database: {e}")
+            print(f"Error: {e}")
             return False
+    def describe_table(self, db_name: str, table_name: str) -> None:  # ← Change en None
+        path = self._get_table_path(db_name, table_name)
+        if not path.exists():
+            print(f"Table '{table_name}' does not exist")
+            return
 
+        try:
+            content = self.crypto.decrypt(path.read_bytes())
+            caracteristiques = content.get("caracteristique", {})
+            constraints = content.get("constraint", {})
+            data_count = len(content.get("data", []))
+
+            if not caracteristiques:
+                print("Table has no defined columns")
+                return
+
+            max_col_len = max(len(k) for k in caracteristiques.keys())
+            max_type_len = max(len(str(v)) for v in caracteristiques.values())
+            sep_len = max_col_len + max_type_len + 40
+            separator = "—" * sep_len
+
+            print(separator)
+            print(f" TABLE: {table_name.upper()} ".center(sep_len, " "))
+            print(separator)
+            print(f"{'Column':<{max_col_len}} | {'Type':<{max_type_len}} | Constraints")
+            print(separator)
+
+            for col, col_type in caracteristiques.items():
+                cons_list = constraints.get(col, ["no constraint"])
+                cons_str = "None" if "no constraint" in cons_list else ", ".join([c.upper() for c in cons_list])
+                print(f"{col:<{max_col_len}} | {col_type:<{max_type_len}} | {cons_str}")
+
+            print(separator)
+            print(f"Total: {len(caracteristiques)} column{'s' if len(caracteristiques) > 1 else ''}, "
+                f"{data_count} row{'s' if data_count > 1 else ''}")
+            print(separator)
+
+        except Exception as e:
+            print(f"Error: {e}")
     def show_databases(self) -> None:
         """Affiche toutes les bases de données disponibles"""
         allDirs = self.list_database()
@@ -87,259 +179,5 @@ class Db:
         print(separator)
         print(f"Total: {len(allDirs)} database{'s' if len(allDirs) > 1 else ''}")
 
-    # =============================
-    # TABLES
-    # =============================
-
-    def list_table(self, path: str) -> List[str]:
-        """Liste toutes les tables dans une base de données"""
-        directory = Path(path)
-        if not directory.exists():
-            return []
-        return [
-            item.name for item in directory.iterdir()
-            if item.is_file() and item.suffix == '.json' and not item.name.startswith(".")
-        ]
-
-    def create_Table(self, dbName: str, name: str, attribute: Dict[str, Any]) -> bool:
-        """Crée une nouvelle table"""
-        if not name or not name.strip():
-            print("Table name cannot be empty")
-            return False
-        path = Path(f"{self.dbPath}/{dbName}/{name}.json")
-        if path.exists():
-            print(f"Table '{name}' already exists")
-            return False
-        try:
-            if "caracteristique" not in attribute:
-                print("Table definition must include 'caracteristique'")
-                return False
-            if "data" not in attribute:
-                attribute["data"] = []
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(attribute, f, indent=2, ensure_ascii=False)
-            username = self.current_user["username"]
-            self.permManager.grant(dbName, name, username, "ALL",
-                                   caller_username=username,
-                                   caller_role=self.current_user["role"])
-            print(f"Table '{name}' created successfully")
-            return True
-        except Exception as e:
-            print(f"Error creating table: {e}")
-            if path.exists():
-                path.unlink()
-            return False
-
-    def drop_table(self, dbName: str, tableName: str) -> bool:
-        """Supprime une table"""
-        if not tableName or not tableName.strip():
-            print("Table name cannot be empty")
-            return False
-        path = Path(f"{self.dbPath}/{dbName}/{tableName}.json")
-        if not path.exists():
-            print(f"Table '{tableName}' does not exist")
-            return False
-        try:
-            path.unlink()
-            self.permManager.cleanup_table_permissions(dbName, tableName)
-            print(f"Table '{tableName}' removed successfully")
-            return True
-        except Exception as e:
-            print(f"Error deleting table: {e}")
-            return False
-
-    def analyse_data(self, path: str, data: List[str]) -> bool:
-        """Ajoute des données dans une table"""
-        if not os.path.exists(path):
-            print("Table does not exist")
-            return False
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            caracteristiques = content.get("caracteristique", {})
-            raw_constraints = content.get("constraint", {})
-            constraints = {
-                col: [c.lower() for c in (vals if isinstance(vals, list) else [vals])]
-                for col, vals in raw_constraints.items()
-            }
-            if not caracteristiques:
-                print("Table has no defined columns")
-                return False
-
-            addedData = {}
-            for item in data:
-                item = item.strip()
-                if "=" not in item:
-                    print(f"Syntax error in '{item}' (expected: col=value)")
-                    return False
-                col, value = item.split("=", 1)
-                col = col.strip()
-                value = value.strip().strip("'").strip('"')
-                if col not in caracteristiques:
-                    print(f"Column '{col}' does not exist")
-                    print(f"Available: {', '.join(caracteristiques.keys())}")
-                    return False
-                addedData[col] = value
-
-            # NOT NULL
-            for col, cons in constraints.items():
-                if 'not_null' in cons and col not in addedData:
-                    print(f"Column '{col}' cannot be NULL")
-                    return False
-
-            # UNIQUE
-            existing = content.get("data", [])
-            for col, cons in constraints.items():
-                if 'unique' in cons and col in addedData:
-                    for row in existing:
-                        if row.get(col) == addedData[col]:
-                            print(f"UNIQUE constraint violation on '{col}'")
-                            return False
-
-            content["data"].append(addedData)
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(content, f, indent=2, ensure_ascii=False)
-            print("Data added successfully")
-            return True
-        except json.JSONDecodeError:
-            print("Corrupted JSON file")
-            return False
-        except Exception as e:
-            print(f"Error inserting data: {e}")
-            return False
-
-    def describe_table(self, path: str) -> bool:
-        """Affiche la description d'une table"""
-        if not os.path.exists(path):
-            print("Table does not exist")
-            return False
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            caracteristiques = content.get("caracteristique", {})
-            raw_constraints = content.get("constraint", {})
-            constraints = {
-                col: [c.lower() for c in (vals if isinstance(vals, list) else [vals])]
-                for col, vals in raw_constraints.items()
-            }
-            data_count = len(content.get("data", []))
-            if not caracteristiques:
-                print("Table has no defined columns")
-                return True
-
-            max_col_len = max([len(k) for k in caracteristiques.keys()] + [10])
-            max_type_len = max([len(str(v)) for v in caracteristiques.values()] + [10])
-            separator = "—" * (max_col_len + max_type_len + 40)
-            table_name = Path(path).stem
-            print(separator)
-            print(f"{'TABLE: ' + table_name.upper():^{len(separator)}}")
-            print(separator)
-            print(f"{'Column':<{max_col_len}} | {'Type':<{max_type_len}} | Constraints")
-            print(separator)
-            for col, col_type in caracteristiques.items():
-                cons_list = constraints.get(col, ["no constraint"])
-                if "no constraint" in cons_list:
-                    cons_str = "None"
-                else:
-                    cons_str = ", ".join([c.upper() if len(c) <= 6 else c.capitalize() for c in cons_list])
-                print(f"{col:<{max_col_len}} | {col_type:<{max_type_len}} | {cons_str}")
-            print(separator)
-            print(f"Total: {len(caracteristiques)} column{'s' if len(caracteristiques) > 1 else ''}, "
-                  f"{data_count} row{'s' if data_count > 1 else ''}")
-            print(separator)
-            return True
-        except json.JSONDecodeError:
-            print("Corrupted JSON file")
-            return False
-        except Exception as e:
-            print(f"Error reading table: {e}")
-            return False
-
-    def table_exists(self, dbName: str, tableName: str) -> bool:
-        """Vérifie si une table existe"""
-        return Path(f"{self.dbPath}/{dbName}/{tableName}.json").exists()
-
-    def get_table_info(self, dbName: str, tableName: str) -> Optional[Dict[str, Any]]:
-        """Récupère les infos d'une table"""
-        path = Path(f"{self.dbPath}/{dbName}/{tableName}.json")
-        if not path.exists():
-            return None
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return None
-
-    # =============================
-    # STATISTIQUES
-    # =============================
-
-    def get_statistics(self, dbName: str) -> Dict[str, Any]:
-        """Statistiques d'une base de données"""
-        stats = {"database": dbName, "tables": 0, "total_rows": 0, "total_columns": 0}
-        path = Path(f"{self.dbPath}/{dbName}")
-        if not path.exists():
-            return stats
-        tables = self.list_table(str(path))
-        stats["tables"] = len(tables)
-        for table_file in tables:
-            try:
-                with open(path / table_file, "r", encoding="utf-8") as f:
-                    content = json.load(f)
-                    stats["total_rows"] += len(content.get("data", []))
-                    stats["total_columns"] += len(content.get("caracteristique", {}))
-            except Exception:
-                continue
-        return stats
-
-    # =============================
-    # HELP
-    # =============================
-
-    def show_help(self) -> None:
-        """Affiche l'aide complète"""
-        help_text = """
-╔══════════════════════════════════════════════════════════════╗
-║                COMMANDES DISPONIBLES - MY SGBD                ║
-╚══════════════════════════════════════════════════════════════╝
-
-BASES DE DONNÉES
-  create_database <nom>        → Créer une base
-  use_db <nom>                 → Sélectionner
-  drop_db <nom>                → Supprimer
-  list_db                      → Lister
-  stats_db                     → Statistiques
-
-TABLES
-  create_table <nom>(col:type[contraintes], ...) → Créer
-  add_into_table <t>(c=v, ...) → Insérer
-  drop_table <nom>             → Supprimer
-  list_table                   → Lister
-  describe_table <nom>         → Structure
-
-REQUÊTES
-  select * from t [where c=v]  → Lire
-  update t set c=v [where...]  → Modifier
-  delete from t [where...]     → Supprimer
-
-UTILISATEURS
-  create_user n password=p [role=admin|user]
-  switch_user_to n password=p
-  drop_user n
-  list_user
-
-PERMISSIONS
-  grant SELECT on table to user
-  revoke DELETE on db.* from user
-  show_grants user
-  show_grants db user
-
-SYSTÈME
-  help | list_commands | clear | exit
-
-TYPES : date, number, string, bool, ...
-CONTRAINTES : not_null, unique, primary_key, ...
-OPÉRATEURS WHERE : =, !=, >, LIKE %abc%, etc.
-═══════════════════════════════════════════════════════════════
-"""
-        print(help_text)
+    def show_help(self):
+        print("Help...")
