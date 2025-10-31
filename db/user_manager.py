@@ -39,7 +39,6 @@ class UserManager:
         }
         data["users"].append(new_user)
         self._save(data)
-        print(f"User '{username}' created with role '{role}'")
 
     def list_users(self):
         data = self._load()

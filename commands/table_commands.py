@@ -22,11 +22,30 @@ def check_permission(db: Db, operation, database_name, table_name=None):
     except:
         return False
 
-def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR):
+    # commands/table_commands.py
+import re
+from utils.helpers import validate_table_name, split_top_level_commas
+
+def check_permission(db: Db, operation, database_name, table_name=None):
+    username = db.current_user.get("username")
+    role = db.current_user.get("role")
+    if role == "admin":
+        return True
+    op = operation.upper()
+    if table_name:
+        return (db.permManager.has_table_permission(database_name, table_name, username, op) or
+                db.permManager.has_db_permission(database_name, username, op))
+    return db.permManager.has_db_permission(database_name, username, op)
+
+def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, config):
     if not isDbUse:
         print("No database selected")
         print("Use: use_db <nom_base>;")
         return
+
+    # CHARGÉ DEPUIS config.json
+    allType = [t.lower() for t in config["allowed_data_types"]]
+    constraints_allowed = {k.lower(): v for k, v in config["allowed_constraints"].items()}
 
     if cmd_line == "create_table":
         try:
@@ -34,25 +53,24 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR):
                 print("Syntax error: parenthèses manquantes")
                 print("Usage: create_table nom(col1:type[contraintes], ...);")
                 return
+
             name = cmd.split(" ")[1].split("(")[0].strip()
             is_valid, error_msg = validate_table_name(name)
             if not is_valid:
                 print(f"Invalid table name: {error_msg}")
                 return
+
             if not check_permission(db, "ALL", useDatabase, name):
-                print(f"Permission denied to create table '{name}' (user: {db.current_user['username']})")
+                print(f"Permission denied to create table '{name}'")
                 return
+
             inside = cmd[cmd.find("(") + 1: cmd.rfind(")")].strip()
             columns = split_top_level_commas(inside)
-            allType = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
-            constraints_allowed = {
-                "not_null": "Not_null", "unique": "Unique", "primary_key": "Primary_key",
-                "foreign_key": "Foreign_key", "check": "Check", "default": "Default",
-                "auto_increment": "Auto_increment"
-            }
+
             attr = {}
             constr = {}
             has_error = False
+
             for val in columns:
                 val = val.strip()
                 if not val: continue
@@ -60,13 +78,16 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR):
                     print(f"Syntax error in '{val}' — expected format: name:type[constraint,...]")
                     has_error = True
                     break
+
                 parts = val.split(":", 1)
                 col = parts[0].strip()
                 type_and_constraints = parts[1].strip()
+
                 if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
                     print(f"Invalid column name: '{col}'")
                     has_error = True
                     break
+
                 if "[" in type_and_constraints and "]" in type_and_constraints:
                     type_part = type_and_constraints.split("[", 1)[0].strip()
                     constraint_part = type_and_constraints[
@@ -76,12 +97,14 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR):
                 else:
                     type_part = type_and_constraints.strip()
                     raw_constraints = []
+
                 t = type_part.lower()
                 if t not in allType:
                     print(f"Unknown type '{type_part}' for column '{col}'")
-                    print(f"Available types: {', '.join(allType)}")
+                    print(f"Available types: {', '.join(config['allowed_data_types'])}")
                     has_error = True
                     break
+
                 normalized_constraints = []
                 invalid_constraints = []
                 for rc in raw_constraints:
@@ -90,22 +113,29 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR):
                         normalized_constraints.append(constraints_allowed[key])
                     else:
                         invalid_constraints.append(rc)
+
                 if invalid_constraints:
                     print(f"Unknown constraints for '{col}': {', '.join(invalid_constraints)}")
-                    print(f"Available constraints: {', '.join(constraints_allowed.keys())}")
+                    print(f"Available: {', '.join(config['allowed_constraints'].keys())}")
                     has_error = True
                     break
-                attr[col] = type_part.capitalize() if t != "number" else "Number"
+
+                # Normalisation du type
+                original_type = next((ot for ot in config["allowed_data_types"] if ot.lower() == t), type_part)
+                attr[col] = "Number" if t == "number" else original_type.capitalize()
                 constr[col] = normalized_constraints if normalized_constraints else ["no constraint"]
+
             if has_error:
                 print("Creation cancelled due to detected errors.")
                 return
+
             table_def = {"caracteristique": attr, "constraint": constr, "data": []}
             db.create_Table(useDatabase, name, table_def)
+
         except Exception as e:
             print(f"Error creating table: {e}")
             import traceback
-            traceback.print_exc()
+            traceback.print_exc()    
 
     elif cmd_line == "add_into_table":
         try:

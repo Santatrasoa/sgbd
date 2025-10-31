@@ -63,7 +63,7 @@ while True:
         if not isDbUse:
             print("No database selected")
             continue
-        handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR)
+        handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, config)
 
     elif cmd_line in ["select", "update", "delete"]:
         if not isDbUse:
