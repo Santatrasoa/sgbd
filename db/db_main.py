@@ -165,6 +165,8 @@ class Db:
                 f"{data_count} row{'s' if data_count > 1 else ''}")
             print(separator)
 
+            self.check_constraints(db_name, table_name, {})  # Exemple d'appel
+
         except Exception as e:
             print(f"Error: {e}")
     def show_databases(self) -> None:
@@ -184,6 +186,37 @@ class Db:
             print(f" {db_name:<{max_len}}{owner_mark}")
         print(separator)
         print(f"Total: {len(allDirs)} database{'s' if len(allDirs) > 1 else ''}")
+
+    def check_constraints(self, db_name: str, table_name: str, new_record: Dict[str, Any]) -> bool:
+        """Vérifie les contraintes avant insertion"""
+        path = self._get_table_path(db_name, table_name)
+        if not path.exists():
+            print(f"Table '{table_name}' does not exist")
+            return False
+        try:
+            content = self.crypto.decrypt(path.read_bytes())
+            constraints = content.get("constraint", {})
+            data = content.get("data", [])
+
+            for col, cons_list in constraints.items():
+                print(col, cons_list)
+                if col not in new_record:
+                    continue
+                value = new_record[col]
+
+                for cons in cons_list:
+                    if cons == "NOT NULL" and (value is None or value == ""):
+                        print(f"Constraint violation: '{col}' cannot be NULL")
+                        return False
+                    if cons.startswith("UNIQUE"):
+                        for record in data:
+                            if record.get(col) == value:
+                                print(f"Constraint violation: '{col}' must be UNIQUE")
+                                return False
+            return True
+        except Exception as e:
+            print(f"Error: {e}")
+            return False
 
     def show_help(self):
         print("Help...")
