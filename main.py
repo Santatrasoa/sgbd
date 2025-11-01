@@ -120,12 +120,9 @@ while True:
         password = parts[2].split("=", 1)[1] if "=" in parts[2] else ""
         new_user = db.userManager.switch_user_to(username, password)
         if new_user:
-            # Sauvegarde ancien utilisateur
             save_user_history(current_user)
-            # Change d'utilisateur
             current_user = username
             db.current_user = new_user
-            # Charge le nouvel historique
             load_user_history(current_user)
             print(f"Switched to user '{current_user}'")
         continue
