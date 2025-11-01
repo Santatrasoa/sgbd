@@ -12,11 +12,14 @@ config = load_config()
 DB_PATH = config["db_path"]
 DEFAULT_PROMPT = config["default_prompt"]
 SEPARATOR = config["separator_char"]
-HISTORY_DIR_PATH = config.get("history_dir", ".history_dir")
-HISTORY_DIR = Path(HISTORY_DIR_PATH)
-HISTORY_DIR.mkdir(exist_ok=True)  
+HISTORY_DIR_PATH = config.get("history_dir", ".history_dir")  # Configurable
 
-DEFAULT_MASTER_PASSWORD = "my_db_password_for_examen_2025_MIT_MISA_L3"
+# === CRÉATION DU DOSSIER HISTORY SI MANQUANT ===
+HISTORY_DIR = Path(HISTORY_DIR_PATH)
+HISTORY_DIR.mkdir(exist_ok=True)
+
+# === CHIFFREMENT ===
+DEFAULT_MASTER_PASSWORD = "mon_mot_de_passe_secret_2025"
 crypto = CryptoManager(DEFAULT_MASTER_PASSWORD)
 
 # === DB ===
@@ -27,24 +30,30 @@ useDatabase = ""
 isDbUse = False
 current_user = db.current_user["username"]
 
-
+# === HISTORIQUE PAR UTILISATEUR (SÉCURISÉ) ===
 def get_history_file(username: str) -> Path:
     return HISTORY_DIR / f".history_{username}"
 
+def clear_readline_history():
+    """Vide l'historique en mémoire de readline"""
+    while readline.get_current_history_length():
+        readline.remove_history_item(0)
+
 def load_user_history(username: str):
+    clear_readline_history()  # VIDE AVANT CHARGEMENT
     hist_file = get_history_file(username)
     if hist_file.exists():
         try:
             readline.read_history_file(str(hist_file))
-        except:
-            pass
+        except Exception as e:
+            print(f"Warning: Could not load history for {username}: {e}")
 
 def save_user_history(username: str):
     hist_file = get_history_file(username)
     try:
         readline.write_history_file(str(hist_file))
-    except:
-        pass
+    except Exception as e:
+        print(f"Warning: Could not save history for {username}: {e}")
 
 # Charge l'historique de root au démarrage
 load_user_history("root")
@@ -57,7 +66,7 @@ def get_prompt():
 
 # === BIENVENUE ===
 print("╔══════════════════════════════════════════════════════════════╗")
-print("║       SGBD SÉCURISÉ – CHIFFRÉ – HISTORIQUE PAR USER – ; OBLIGATOIRE       ║")
+print("║       SGBD SÉCURISÉ – HISTORIQUE ISOLÉ PAR USER – ; OBLIGATOIRE       ║")
 print("╚══════════════════════════════════════════════════════════════╝")
 print("Tape 'help' pour voir les commandes\n")
 
@@ -71,6 +80,7 @@ while True:
         continue
     except EOFError:
         save_user_history(current_user)
+        clear_readline_history()
         print("\nBye! Thanks for using MY")
         exit()
 
@@ -81,6 +91,7 @@ while True:
 
     if cmd.strip() in ["exit", "exit;"]:
         save_user_history(current_user)
+        clear_readline_history()
         print("Bye! Thanks for using MY")
         exit()
 
@@ -94,11 +105,12 @@ while True:
             break
         except EOFError:
             save_user_history(current_user)
+            clear_readline_history()
             print("\nAu revoir ! Merci d'avoir utilisé MY")
             exit()
         cmd += " " + next_line.strip()
 
-    # === NETTOYAGE ===
+    # === NETTOYAGE DE LA COMMANDE ===
     cmd = cmd.strip()
     if not cmd.endswith(";"):
         continue
@@ -110,7 +122,7 @@ while True:
     cmd_line = cmd.split(" ", 1)[0].lower() if " " in cmd else cmd.lower()
     result = None
 
-    # === SWITCH USER (change d'historique) ===
+    # === SWITCH USER (SÉCURISÉ) ===
     if cmd_line == "switch_user_to":
         parts = cmd.split(" ", 2)
         if len(parts) < 3 or "password=" not in parts[2]:
@@ -120,9 +132,14 @@ while True:
         password = parts[2].split("=", 1)[1] if "=" in parts[2] else ""
         new_user = db.userManager.switch_user_to(username, password)
         if new_user:
+            # 1. SAUVEGARDE l'actuel
             save_user_history(current_user)
+            # 2. VIDE readline
+            clear_readline_history()
+            # 3. CHANGE d'utilisateur
             current_user = username
             db.current_user = new_user
+            # 4. CHARGE le nouvel historique
             load_user_history(current_user)
             print(f"Switched to user '{current_user}'")
         continue
