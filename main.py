@@ -66,7 +66,7 @@ def get_prompt():
 
 # === BIENVENUE ===
 print("╔══════════════════════════════════════════════════════════════╗")
-print("║       SGBD SÉCURISÉ – HISTORIQUE ISOLÉ PAR USER – ; OBLIGATOIRE       ║")
+print("║            WELCOME TO MY, ENJOY USING MY SGBD                ║")
 print("╚══════════════════════════════════════════════════════════════╝")
 print("Tape 'help' pour voir les commandes\n")
 

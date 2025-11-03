@@ -213,6 +213,16 @@ class Db:
                             if record.get(col) == value:
                                 print(f"Constraint violation: '{col}' must be UNIQUE")
                                 return False
+                    if cons.startswith("CHECK"):
+                        condition = cons[6:-1].strip()  # Extrait la condition entre parenthèses
+                        try:
+                            if not eval(condition, {}, {col: value}):
+                                print(f"Constraint violation: CHECK constraint failed for '{col}'")
+                                return False
+                        except Exception as e:
+                            print(f"Error evaluating CHECK constraint for '{col}': {e}")
+                            return False
+
             return True
         except Exception as e:
             print(f"Error: {e}")

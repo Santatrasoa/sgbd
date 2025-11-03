@@ -2,6 +2,7 @@
   "db_path": ".database",
   "history_path": ".database/.history",
   "default_prompt": "⇒",
+  "separator_char_": "─",
   "separator_char": "—",
   "history_dir": ".history",
   "max_history_size": 1000,
