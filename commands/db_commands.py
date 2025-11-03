@@ -18,6 +18,8 @@ def handle_db_commands(cmd, cmd_line, db: Db, userUsingDb, DEFAULT_PROMPT, SEPAR
                 isDbUse = True
                 promptContainte = f"[{userUsingDb} & db:\033[34m{name}\033[0m]\n{DEFAULT_PROMPT} "
                 return userUsingDb, promptContainte, useDatabase, isDbUse  # ← RETOURNE TOUT
+            else:
+                print(f"Permission denied to use database '{name}'")
             # ...
         return None, None, None, None
 
