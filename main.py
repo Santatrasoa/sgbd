@@ -19,7 +19,7 @@ HISTORY_DIR = Path(HISTORY_DIR_PATH)
 HISTORY_DIR.mkdir(exist_ok=True)
 
 # === CHIFFREMENT ===
-DEFAULT_MASTER_PASSWORD = "mon_mot_de_passe_secret_2025"
+DEFAULT_MASTER_PASSWORD = "mit_misa_password_123!!!"
 crypto = CryptoManager(DEFAULT_MASTER_PASSWORD)
 
 # === DB ===
@@ -145,7 +145,7 @@ while True:
         continue
 
     # === COMMANDES DB ===
-    if cmd_line in ["create_db", "use_db", "drop_db", "list_db", "stats_db", "leave_db"]:
+    if cmd_line in ["create_db", "create_database", "use_database", "use_db", "drop_db", "list_db", "stats_db", "leave_db"]:
         result = handle_db_commands(cmd, cmd_line, db, get_prompt(), DEFAULT_PROMPT, SEPARATOR)
 
     # === COMMANDES TABLE ===

@@ -1,5 +1,9 @@
 # commands/user_perm_commands.py
 from utils.helpers import hash_password
+from utils.config_loader import load_config
+
+config = load_config()
+ALL_PERMISSION = config["permissions"]
 
 # Variables globales (modifiées dans main.py)
 global userUsingDb, promptContainte
@@ -78,6 +82,10 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
         try:
             parts = cmd.split()
             perm = parts[1].upper()
+
+            if perm not in ALL_PERMISSION:
+                print("Error !!! Permission must be in ", ALL_PERMISSION)
+                return
             on_idx = parts.index("on")
             to_idx = parts.index("to")
             target = parts[on_idx + 1]
