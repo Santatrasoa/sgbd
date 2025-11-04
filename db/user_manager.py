@@ -69,7 +69,7 @@ class UserManager:
             return
         self._save(data)
 
-    def switch_user_to(self, username, password):
+    def switch_to(self, username, password):
         data = self._load()
         hashed = hash_password(password)
         for u in data["users"]:

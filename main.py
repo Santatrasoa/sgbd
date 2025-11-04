@@ -126,12 +126,12 @@ while True:
     # ========================================
     # SWITCH USER (SÉCURISÉ AVEC GETPASS) ← MODIFIÉ
     # ========================================
-    if cmd_line == "switch_user_to":
+    if cmd_line == "switch_to":
         try:
             parts = cmd.split()
             if len(parts) < 2:
                 print("Username required")
-                print("Usage: switch_user_to <username>;")
+                print("Usage: switch_to <username>;")
                 continue
             
             username = parts[1]
@@ -149,7 +149,7 @@ while True:
                 print("⚠️ Warning: Password visible in command history!")
             
             # Tenter la connexion
-            new_user = db.userManager.switch_user_to(username, password)
+            new_user = db.userManager.switch_to(username, password)
             
             if new_user:
                 # 1. SAUVEGARDER l'historique de l'utilisateur actuel
@@ -171,7 +171,7 @@ while True:
                 
         except Exception as e:
             print(f"Error: {e}")
-            print("Usage: switch_user_to <username>;")
+            print("Usage: switch_to <username>;")
         
         continue
 
