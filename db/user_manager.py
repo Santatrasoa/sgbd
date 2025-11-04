@@ -42,7 +42,6 @@ class UserManager:
         }
         data["users"].append(new_user)
         self._save(data)
-        print(f"User '{username}' created")
 
     def list_users(self):
         data = self._load()
@@ -69,14 +68,12 @@ class UserManager:
             print(f"User '{username}' not found")
             return
         self._save(data)
-        print(f"User '{username}' removed")
 
     def switch_user_to(self, username, password):
         data = self._load()
         hashed = hash_password(password)
         for u in data["users"]:
             if u["username"] == username and u["password"] == hashed:
-                print(f"Switched to user '{username}'")
                 return {"username": username, "role": u["role"]}
         print("Invalid username or password")
         return None

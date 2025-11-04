@@ -20,7 +20,8 @@ def handle_db_commands(cmd, cmd_line, db: Db, userUsingDb, DEFAULT_PROMPT, SEPAR
                 return userUsingDb, promptContainte, useDatabase, isDbUse  # ← RETOURNE TOUT
             else:
                 print(f"Permission denied to use database '{name}'")
-            # ...
+        else:
+            print(f"Database '{name}' does not exist")
         return None, None, None, None
 
     elif cmd_line in ["leave_db", "leave_database"]:

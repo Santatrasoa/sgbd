@@ -1,6 +1,7 @@
 # main.py
 import os
 import readline
+import getpass  # ← AJOUT IMPORTANT
 from pathlib import Path
 from utils.config_loader import load_config
 from utils.crypto import CryptoManager
@@ -12,7 +13,7 @@ config = load_config()
 DB_PATH = config["db_path"]
 DEFAULT_PROMPT = config["default_prompt"]
 SEPARATOR = config["separator_char"]
-HISTORY_DIR_PATH = config.get("history_dir", ".history_dir")  # Configurable
+HISTORY_DIR_PATH = config.get("history_dir", ".history_dir")
 
 # === CRÉATION DU DOSSIER HISTORY SI MANQUANT ===
 HISTORY_DIR = Path(HISTORY_DIR_PATH)
@@ -40,20 +41,20 @@ def clear_readline_history():
         readline.remove_history_item(0)
 
 def load_user_history(username: str):
-    clear_readline_history()  # VIDE AVANT CHARGEMENT
+    clear_readline_history()
     hist_file = get_history_file(username)
     if hist_file.exists():
         try:
             readline.read_history_file(str(hist_file))
         except Exception as e:
-            print(f"Warning: Could not load history for {username}: {e}")
+            print(f"⚠️ Could not load history for {username}: {e}")
 
 def save_user_history(username: str):
     hist_file = get_history_file(username)
     try:
         readline.write_history_file(str(hist_file))
     except Exception as e:
-        print(f"Warning: Could not save history for {username}: {e}")
+        print(f"⚠️ Could not save history for {username}: {e}")
 
 # Charge l'historique de root au démarrage
 load_user_history("root")
@@ -68,7 +69,7 @@ def get_prompt():
 print("╔══════════════════════════════════════════════════════════════╗")
 print("║            WELCOME TO MY, ENJOY USING MY SGBD                ║")
 print("╚══════════════════════════════════════════════════════════════╝")
-print("Tape 'help' pour voir les commandes\n")
+print("Type 'help' to see available commands\n")
 
 # === BOUCLE PRINCIPALE ===
 while True:
@@ -106,7 +107,7 @@ while True:
         except EOFError:
             save_user_history(current_user)
             clear_readline_history()
-            print("\nAu revoir ! Merci d'avoir utilisé MY")
+            print("\nBye! Thanks for using MY")
             exit()
         cmd += " " + next_line.strip()
 
@@ -122,26 +123,56 @@ while True:
     cmd_line = cmd.split(" ", 1)[0].lower() if " " in cmd else cmd.lower()
     result = None
 
-    # === SWITCH USER (SÉCURISÉ) ===
+    # ========================================
+    # SWITCH USER (SÉCURISÉ AVEC GETPASS) ← MODIFIÉ
+    # ========================================
     if cmd_line == "switch_user_to":
-        parts = cmd.split(" ", 2)
-        if len(parts) < 3 or "password=" not in parts[2]:
-            print("Usage: switch_user_to <user> password=<pass>;")
-            continue
-        username = parts[1]
-        password = parts[2].split("=", 1)[1] if "=" in parts[2] else ""
-        new_user = db.userManager.switch_user_to(username, password)
-        if new_user:
-            # 1. SAUVEGARDE l'actuel
-            save_user_history(current_user)
-            # 2. VIDE readline
-            clear_readline_history()
-            # 3. CHANGE d'utilisateur
-            current_user = username
-            db.current_user = new_user
-            # 4. CHARGE le nouvel historique
-            load_user_history(current_user)
-            print(f"Switched to user '{current_user}'")
+        try:
+            parts = cmd.split()
+            if len(parts) < 2:
+                print("Username required")
+                print("Usage: switch_user_to <username>;")
+                continue
+            
+            username = parts[1]
+            
+            # Vérifier si password= est dans la commande (ancien mode)
+            pwd_part = [p for p in parts if p.startswith("password=")]
+            
+            # MODE SÉCURISÉ : demander avec getpass
+            if not pwd_part:
+                print(f"Switching to user '{username}'")
+                password = getpass.getpass("Password: ")
+            else:
+                # Mode ancien (déconseillé)
+                password = pwd_part[0].split("=", 1)[1]
+                print("⚠️ Warning: Password visible in command history!")
+            
+            # Tenter la connexion
+            new_user = db.userManager.switch_user_to(username, password)
+            
+            if new_user:
+                # 1. SAUVEGARDER l'historique de l'utilisateur actuel
+                save_user_history(current_user)
+                
+                # 2. VIDER readline
+                clear_readline_history()
+                
+                # 3. CHANGER d'utilisateur
+                current_user = username
+                db.current_user = new_user
+                
+                # 4. CHARGER le nouvel historique
+                load_user_history(current_user)
+                
+                print(f"✓ Switched to user '{current_user}'")
+            else:
+                print("Invalid username or password")
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            print("Usage: switch_user_to <username>;")
+        
         continue
 
     # === COMMANDES DB ===
@@ -152,6 +183,7 @@ while True:
     elif cmd_line in ["create_table", "add_into_table", "list_table", "describe_table", "drop_table"]:
         if not isDbUse:
             print("No database selected")
+            print("Use: use_db <database_name>;")
             continue
         handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, config)
 
@@ -159,6 +191,7 @@ while True:
     elif cmd_line in ["select", "update", "delete"]:
         if not isDbUse:
             print("No database selected")
+            print("Use: use_db <database_name>;")
             continue
         handle_query_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR)
 
@@ -172,9 +205,10 @@ while True:
 
     # === COMMANDE INCONNUE ===
     else:
-        print(f"Unknown command: '{cmd_line}'. Type 'help' for available commands.")
+        print(f"Unknown command: '{cmd_line}'")
+        print("Type 'help' for available commands")
         continue
 
-    # === MISE À JOUR PROMPT (dynamique via get_prompt()) ===
+    # === MISE À JOUR PROMPT ===
     if result is not None and len(result) >= 4:
         _, _, useDatabase, isDbUse = result
