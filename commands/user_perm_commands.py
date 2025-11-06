@@ -34,7 +34,6 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
 
             # Mode sécurisé : demander le mot de passe avec getpass
             if not pwd_part:
-                print(f"Creating user '{username}'")
                 password = getpass.getpass("Enter password: ")
                 password_confirm = getpass.getpass("Confirm password: ")
                 
