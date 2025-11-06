@@ -34,6 +34,7 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
 
             # Mode sécurisé : demander le mot de passe avec getpass
             if not pwd_part:
+                print(f"Creating user '{username}'")
                 password = getpass.getpass("Enter password: ")
                 password_confirm = getpass.getpass("Confirm password: ")
                 
@@ -94,6 +95,7 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
             confirm = input(f"⚠️ Delete user '{username}'? (yes/no): ").lower()
             if confirm in ["yes", "y", "oui"]:
                 db.userManager.drop_user(username)
+                print(f"✓ User '{username}' deleted")
             else:
                 print("Operation cancelled")
                 
@@ -103,7 +105,7 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
         return None
 
     # ========================================
-    # GRANT - Accorder des permissions
+    # GRANT - Accorder des permissions (MULTIPLE)
     # ========================================
     elif cmd_line == "grant":
         try:
@@ -112,19 +114,24 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
             if len(parts) < 5:
                 raise ValueError("Incomplete command")
             
-            perm = parts[1].upper()
-
-            # Vérifier que la permission existe
-            if perm not in ALL_PERMISSION:
-                print(f"Invalid permission '{perm}'")
-                print(f"Available permissions: {', '.join(ALL_PERMISSION)}")
-                return None
-            
-            # Parser la commande
+            # Trouver les indices des mots-clés
             on_idx = parts.index("on")
             to_idx = parts.index("to")
+            
+            # Extraire les permissions (tout entre grant et on)
+            perm_str = " ".join(parts[1:on_idx])
             target = parts[on_idx + 1]
             username = parts[to_idx + 1]
+            
+            # Parser les permissions multiples (séparées par des virgules)
+            raw_permissions = [p.strip().upper() for p in perm_str.split(",")]
+            
+            # Valider toutes les permissions
+            invalid_perms = [p for p in raw_permissions if p not in ALL_PERMISSION]
+            if invalid_perms:
+                print(f"Invalid permission(s): {', '.join(invalid_perms)}")
+                print(f"Available permissions: {', '.join(ALL_PERMISSION)}")
+                return None
             
             # Déterminer la base et la table
             if "." in target:
@@ -138,21 +145,44 @@ def handle_user_perm_commands(cmd, cmd_line, db, useDatabase, isDbUse, DEFAULT_P
                 print("Use: grant <perm> on <db.table> to <user>;")
                 return None
             
-            # Accorder la permission
-            db.permManager.grant(
-                db_name, table_name, username, perm,
-                db.current_user["username"], 
-                db.current_user["role"]
-            )
+            # Accorder chaque permission
+            granted_perms = []
+            failed_perms = []
+            
+            for perm in raw_permissions:
+                try:
+                    success = db.permManager.grant(
+                        db_name, table_name, username, perm,
+                        db.current_user["username"], 
+                        db.current_user["role"]
+                    )
+                    if success or success is None:  # None = pas de retour explicite
+                        granted_perms.append(perm)
+                    else:
+                        failed_perms.append(perm)
+                except Exception as e:
+                    print(f"⚠️ Failed to grant {perm}: {e}")
+                    failed_perms.append(perm)
+            
+            # Afficher le résumé
+            if granted_perms:
+                perm_list = ", ".join(granted_perms)
+                print(f"✓ Granted {perm_list} on {db_name}.{table_name} to {username}")
+            
+            if failed_perms:
+                perm_list = ", ".join(failed_perms)
+                print(f"Failed to grant: {perm_list}")
             
         except ValueError as e:
             if "not in list" in str(e):
                 print("Syntax error: missing 'on' or 'to' keyword")
-            print("Usage: grant <permission> on <table|db.table|*> to <user>;")
-            print("Example: grant SELECT on users to alice;")
+            print("Usage: grant <permission[,permission,...]> on <table|db.table|*> to <user>;")
+            print("Examples:")
+            print("  grant SELECT on users to alice;")
+            print("  grant SELECT, INSERT, UPDATE on users to alice;")
         except Exception as e:
             print(f"Error: {e}")
-            print("Usage: grant <permission> on <table|db.table|*> to <user>;")
+            print("Usage: grant <permission[,permission,...]> on <table|db.table|*> to <user>;")
 
         return None
 
