@@ -67,7 +67,7 @@ def get_prompt():
 
 # === BIENVENUE ===
 print("╔══════════════════════════════════════════════════════════════╗")
-print("║            WELCOME TO MY, ENJOY USING MY SGBD                ║")
+print("║                    Welcome to my_diaries                     ║")
 print("╚══════════════════════════════════════════════════════════════╝")
 print("Type 'help' to see available commands\n")
 
@@ -75,14 +75,14 @@ print("Type 'help' to see available commands\n")
 while True:
     print("")
     try:
-        cmd = input("my ~ " + get_prompt())
+        cmd = input("my_diaries ~ " + get_prompt())
     except KeyboardInterrupt:
         print("\n^C")
         continue
     except EOFError:
         save_user_history(current_user)
         clear_readline_history()
-        print("\nBye! Thanks for using MY")
+        print("\nBye! Thanks for using my_diaries")
         exit()
 
     # === COMMANDES SYSTÈME SIMPLES (sans ;) ===
@@ -93,7 +93,7 @@ while True:
     if cmd.strip() in ["exit", "exit;"]:
         save_user_history(current_user)
         clear_readline_history()
-        print("Bye! Thanks for using MY")
+        print("Bye! Thanks for using my_diaries")
         exit()
 
     # === GESTION DES COMMANDES MULTI-LIGNES ===
@@ -107,7 +107,7 @@ while True:
         except EOFError:
             save_user_history(current_user)
             clear_readline_history()
-            print("\nBye! Thanks for using MY")
+            print("\nBye! Thanks for using my_diaries")
             exit()
         cmd += " " + next_line.strip()
 
@@ -123,9 +123,6 @@ while True:
     cmd_line = cmd.split(" ", 1)[0].lower() if " " in cmd else cmd.lower()
     result = None
 
-    # ========================================
-    # SWITCH USER (SÉCURISÉ AVEC GETPASS) ← MODIFIÉ
-    # ========================================
     if cmd_line == "switch_to":
         try:
             parts = cmd.split()
@@ -141,7 +138,6 @@ while True:
             
             # MODE SÉCURISÉ : demander avec getpass
             if not pwd_part:
-                print(f"Switching to user '{username}'")
                 password = getpass.getpass("Password: ")
             else:
                 # Mode ancien (déconseillé)
@@ -152,17 +148,13 @@ while True:
             new_user = db.userManager.switch_to(username, password)
             
             if new_user:
-                # 1. SAUVEGARDER l'historique de l'utilisateur actuel
                 save_user_history(current_user)
                 
-                # 2. VIDER readline
                 clear_readline_history()
                 
-                # 3. CHANGER d'utilisateur
                 current_user = username
                 db.current_user = new_user
                 
-                # 4. CHARGER le nouvel historique
                 load_user_history(current_user)
                 
                 print(f"✓ Switched to user '{current_user}'")
@@ -173,6 +165,18 @@ while True:
             print(f"Error: {e}")
             print("Usage: switch_to <username>;")
         
+        continue
+
+    if cmd_line.startswith("alter_table"):
+        if not isDbUse:
+            print("No database selected")
+            print("Use: use_db <database_name>;")
+            continue
+        
+        # Importer la fonction depuis le module commands
+        from commands.table_commands import handle_alter_table
+        
+        handle_alter_table(cmd, db, useDatabase, config)
         continue
 
     # === COMMANDES DB ===
