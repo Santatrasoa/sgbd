@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from pathlib import Path
 from utils.helpers import validate_table_name, split_top_level_commas
 from db.db_main import Db
 
@@ -203,44 +204,47 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
 
 # commands/table_commands.py - Ajouter cette fonction
 
+# commands/table_commands.py
+# Ajouter cette fonction à votre fichier table_commands.py existant
+# Ou créer ce fichier s'il n'existe pas
+
+
 def handle_alter_table(cmd, db, useDatabase, config):
     """
-    Gère la commande ALTER TABLE
+    Gère la commande ALTER_TABLE avec chiffrement
     
     Syntaxes supportées:
-    - ALTER TABLE nom ADD COLUMN col:type[contraintes];
-    - ALTER TABLE nom DROP COLUMN col;
-    - ALTER TABLE nom RENAME COLUMN old_col TO new_col;
-    - ALTER TABLE nom MODIFY COLUMN col:new_type[contraintes];
-    - ALTER TABLE nom RENAME TO new_name;
+    - ALTER_TABLE nom ADD COLUMN col:type[contraintes];
+    - ALTER_TABLE nom DROP COLUMN col;
+    - ALTER_TABLE nom RENAME COLUMN old_col TO new_col;
+    - ALTER_TABLE nom MODIFY COLUMN col:new_type[contraintes];
+    - ALTER_TABLE nom RENAME TO new_name;
     """
-    import json
-    import re
-    from pathlib import Path
     
     DB_PATH = config.get("db_path", ".database")
     
     try:
-        # Parser la commande
+        # Parser la commande : ALTER_TABLE nom ...
         parts = cmd.split()
-        if len(parts) < 4:
-            raise ValueError("Incomplete ALTER TABLE command")
+        if len(parts) < 3:
+            raise ValueError("Incomplete ALTER_TABLE command")
         
-        table_name = parts[2]  # ALTER TABLE <nom>
-        action = parts[3].upper()  # ADD, DROP, RENAME, MODIFY
+        # parts[0] = "alter_table"
+        table_name = parts[1]  # ALTER_TABLE <nom>
+        action = parts[2].upper()  # ADD, DROP, RENAME, MODIFY
         
         # Chemin vers le fichier de la table
-        table_path = Path(f"{DB_PATH}/{useDatabase}/{table_name}.json")
+        table_path = Path(f"{DB_PATH}/{useDatabase}/{table_name}.enc")
         
         if not table_path.exists():
-            print(f"Table '{table_name}' does not exist")
+            print(f"❌ Table '{table_name}' does not exist")
             return
         
         # Vérifier les permissions
         current_username = db.current_user.get("username")
         role = db.current_user.get("role")
         
-        # ALTER TABLE nécessite la permission ALL ou une permission spéciale
+        # ALTER_TABLE nécessite la permission ALL ou être admin
         if role != "admin":
             has_perm = db.permManager.has_table_permission(
                 useDatabase, table_name, current_username, "ALL"
@@ -249,9 +253,15 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 print(f"🚫 Permission denied to alter table '{table_name}' (user: {current_username})")
                 return
         
-        # Charger la table
-        with open(table_path, "r", encoding="utf-8") as f:
-            table_data = json.load(f)
+        # ========================================
+        # CHARGEMENT AVEC CHIFFREMENT
+        # ========================================
+        with open(table_path, "rb") as f:  # Mode binaire pour le chiffrement
+            encrypted_data = f.read()
+        
+        # Déchiffrer les données
+        decrypted_json = db.crypto.decrypt(encrypted_data)
+        table_data = json.loads(decrypted_json)
         
         caracteristiques = table_data.get("caracteristique", {})
         constraints = table_data.get("constraint", {})
@@ -260,13 +270,13 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         # ADD COLUMN : Ajouter une colonne
         # ==========================================
-        if action == "ADD" and len(parts) > 4 and parts[4].upper() == "COLUMN":
-            # ALTER TABLE users ADD COLUMN email:string[not_null];
-            column_def = " ".join(parts[5:])
+        if action == "ADD" and len(parts) > 3 and parts[3].upper() == "COLUMN":
+            # ALTER_TABLE users ADD COLUMN email:string[not_null];
+            column_def = " ".join(parts[4:])
             
             if ":" not in column_def:
-                print("Syntax error: expected format col:type[constraints]")
-                print("Example: ALTER TABLE users ADD COLUMN email:string[not_null];")
+                print("❌ Syntax error: expected format col:type[constraints]")
+                print("Example: ALTER_TABLE users ADD COLUMN email:string[not_null];")
                 return
             
             # Parser la définition de colonne
@@ -276,12 +286,12 @@ def handle_alter_table(cmd, db, useDatabase, config):
             
             # Valider le nom de colonne
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col_name):
-                print(f"Invalid column name: '{col_name}'")
+                print(f"❌ Invalid column name: '{col_name}'")
                 return
             
             # Vérifier que la colonne n'existe pas déjà
             if col_name in caracteristiques:
-                print(f"Column '{col_name}' already exists")
+                print(f"❌ Column '{col_name}' already exists")
                 return
             
             # Extraire type et contraintes
@@ -298,7 +308,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Valider le type
             all_types = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
             if type_part.lower() not in all_types:
-                print(f"Unknown type '{type_part}'")
+                print(f"❌ Unknown type '{type_part}'")
                 print(f"Available types: {', '.join(all_types)}")
                 return
             
@@ -334,17 +344,17 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         # DROP COLUMN : Supprimer une colonne
         # ==========================================
-        elif action == "DROP" and len(parts) > 4 and parts[4].upper() == "COLUMN":
-            # ALTER TABLE users DROP COLUMN email;
-            col_name = parts[5] if len(parts) > 5 else ""
+        elif action == "DROP" and len(parts) > 3 and parts[3].upper() == "COLUMN":
+            # ALTER_TABLE users DROP COLUMN email;
+            col_name = parts[4] if len(parts) > 4 else ""
             
             if not col_name:
-                print("Column name required")
-                print("Example: ALTER TABLE users DROP COLUMN email;")
+                print("❌ Column name required")
+                print("Example: ALTER_TABLE users DROP COLUMN email;")
                 return
             
             if col_name not in caracteristiques:
-                print(f"Column '{col_name}' does not exist")
+                print(f"❌ Column '{col_name}' does not exist")
                 return
             
             # Vérifier si c'est une clé primaire
@@ -352,7 +362,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             if "Primary_key" in col_constraints or "primary_key" in [c.lower() for c in col_constraints]:
                 confirm = input(f"⚠️ '{col_name}' is a PRIMARY KEY. Continue? (yes/no): ").lower()
                 if confirm not in ["yes", "y"]:
-                    print("Operation cancelled")
+                    print("❌ Operation cancelled")
                     return
             
             # Supprimer la colonne
@@ -370,27 +380,27 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         # RENAME COLUMN : Renommer une colonne
         # ==========================================
-        elif action == "RENAME" and len(parts) > 4 and parts[4].upper() == "COLUMN":
-            # ALTER TABLE users RENAME COLUMN old_name TO new_name;
-            if len(parts) < 7 or parts[6].upper() != "TO":
-                print("Syntax error")
-                print("Example: ALTER TABLE users RENAME COLUMN old_name TO new_name;")
+        elif action == "RENAME" and len(parts) > 3 and parts[3].upper() == "COLUMN":
+            # ALTER_TABLE users RENAME COLUMN old_name TO new_name;
+            if len(parts) < 6 or parts[5].upper() != "TO":
+                print("❌ Syntax error")
+                print("Example: ALTER_TABLE users RENAME COLUMN old_name TO new_name;")
                 return
             
-            old_name = parts[5]
-            new_name = parts[7]
+            old_name = parts[4]
+            new_name = parts[6]
             
             if old_name not in caracteristiques:
-                print(f"Column '{old_name}' does not exist")
+                print(f"❌ Column '{old_name}' does not exist")
                 return
             
             if new_name in caracteristiques:
-                print(f"Column '{new_name}' already exists")
+                print(f"❌ Column '{new_name}' already exists")
                 return
             
             # Valider le nouveau nom
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', new_name):
-                print(f"Invalid column name: '{new_name}'")
+                print(f"❌ Invalid column name: '{new_name}'")
                 return
             
             # Renommer dans caracteristiques
@@ -410,13 +420,13 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         # MODIFY COLUMN : Modifier le type d'une colonne
         # ==========================================
-        elif action == "MODIFY" and len(parts) > 4 and parts[4].upper() == "COLUMN":
-            # ALTER TABLE users MODIFY COLUMN age:number[not_null];
-            column_def = " ".join(parts[5:])
+        elif action == "MODIFY" and len(parts) > 3 and parts[3].upper() == "COLUMN":
+            # ALTER_TABLE users MODIFY COLUMN age:number[not_null];
+            column_def = " ".join(parts[4:])
             
             if ":" not in column_def:
-                print("Syntax error: expected format col:new_type[constraints]")
-                print("Example: ALTER TABLE users MODIFY COLUMN age:number[not_null];")
+                print("❌ Syntax error: expected format col:new_type[constraints]")
+                print("Example: ALTER_TABLE users MODIFY COLUMN age:number[not_null];")
                 return
             
             # Parser la définition
@@ -425,7 +435,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             type_and_constraints = col_parts[1].strip()
             
             if col_name not in caracteristiques:
-                print(f"Column '{col_name}' does not exist")
+                print(f"❌ Column '{col_name}' does not exist")
                 return
             
             # Extraire type et contraintes
@@ -442,7 +452,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Valider le type
             all_types = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
             if type_part.lower() not in all_types:
-                print(f"Unknown type '{type_part}'")
+                print(f"❌ Unknown type '{type_part}'")
                 return
             
             # Normaliser les contraintes
@@ -469,7 +479,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 print("   Existing data may become incompatible")
                 confirm = input("Continue? (yes/no): ").lower()
                 if confirm not in ["yes", "y"]:
-                    print("Operation cancelled")
+                    print("❌ Operation cancelled")
                     return
             
             # Modifier le type et les contraintes
@@ -481,18 +491,18 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         # RENAME TO : Renommer la table
         # ==========================================
-        elif action == "RENAME" and len(parts) > 4 and parts[4].upper() == "TO":
-            # ALTER TABLE users RENAME TO customers;
-            new_table_name = parts[5]
+        elif action == "RENAME" and len(parts) > 3 and parts[3].upper() == "TO":
+            # ALTER_TABLE users RENAME TO customers;
+            new_table_name = parts[4]
             
             # Valider le nouveau nom
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', new_table_name):
-                print(f"Invalid table name: '{new_table_name}'")
+                print(f"❌ Invalid table name: '{new_table_name}'")
                 return
             
             new_table_path = Path(f"{DB_PATH}/{useDatabase}/{new_table_name}.json")
             if new_table_path.exists():
-                print(f"Table '{new_table_name}' already exists")
+                print(f"❌ Table '{new_table_name}' already exists")
                 return
             
             # Sauvegarder avec le nouveau nom
@@ -506,20 +516,17 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Supprimer l'ancien fichier
             table_path.unlink()
             
-            # Mettre à jour les permissions (copier les permissions de l'ancienne table)
-            # Note: cela nécessiterait d'étendre permission_manager
-            
             print(f"✓ Table '{table_name}' renamed to '{new_table_name}'")
             return  # Pas besoin de sauvegarder car on a déjà écrit le nouveau fichier
         
         else:
-            print("Unknown ALTER TABLE action")
+            print("❌ Unknown ALTER_TABLE action")
             print("Supported actions:")
-            print("  ALTER TABLE <name> ADD COLUMN <col:type[constraints]>;")
-            print("  ALTER TABLE <name> DROP COLUMN <col>;")
-            print("  ALTER TABLE <name> RENAME COLUMN <old> TO <new>;")
-            print("  ALTER TABLE <name> MODIFY COLUMN <col:type[constraints]>;")
-            print("  ALTER TABLE <name> RENAME TO <new_name>;")
+            print("  ALTER_TABLE <n> ADD COLUMN <col:type[constraints]>;")
+            print("  ALTER_TABLE <n> DROP COLUMN <col>;")
+            print("  ALTER_TABLE <n> RENAME COLUMN <old> TO <new>;")
+            print("  ALTER_TABLE <n> MODIFY COLUMN <col:type[constraints]>;")
+            print("  ALTER_TABLE <n> RENAME TO <new_name>;")
             return
         
         # Sauvegarder les modifications (sauf pour RENAME TO qui sauvegarde séparément)
@@ -531,9 +538,9 @@ def handle_alter_table(cmd, db, useDatabase, config):
             json.dump(table_data, f, indent=2, ensure_ascii=False)
         
     except ValueError as e:
-        print(f"Syntax error: {e}")
-        print("Usage: ALTER TABLE <name> <action> ...;")
+        print(f"❌ Syntax error: {e}")
+        print("Usage: ALTER_TABLE <n> <action> ...;")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()

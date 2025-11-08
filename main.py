@@ -166,16 +166,14 @@ while True:
             print("Usage: switch_to <username>;")
         
         continue
-
-    if cmd_line.startswith("alter_table"):
+    elif cmd_line == "alter_table":
         if not isDbUse:
-            print("No database selected")
+            print("❌ No database selected")
             print("Use: use_db <database_name>;")
             continue
         
-        # Importer la fonction depuis le module commands
+        # Importer et appeler la fonction
         from commands.table_commands import handle_alter_table
-        
         handle_alter_table(cmd, db, useDatabase, config)
         continue
 
