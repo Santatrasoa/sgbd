@@ -1,7 +1,6 @@
-# main.py
 import os
 import readline
-import getpass  # ← AJOUT IMPORTANT
+import getpass
 from pathlib import Path
 from utils.config_loader import load_config
 from utils.crypto import CryptoManager
@@ -25,11 +24,6 @@ crypto = CryptoManager(DEFAULT_MASTER_PASSWORD)
 
 # === DB ===
 db = Db(DB_PATH, crypto=crypto)
-
-# === ÉTAT ===
-useDatabase = ""
-isDbUse = False
-current_user = db.current_user["username"]
 
 # === HISTORIQUE PAR UTILISATEUR (SÉCURISÉ) ===
 def get_history_file(username: str) -> Path:
@@ -56,20 +50,70 @@ def save_user_history(username: str):
     except Exception as e:
         print(f"⚠️ Could not save history for {username}: {e}")
 
-# Charge l'historique de root au démarrage
-load_user_history("root")
-
 # === PROMPT DYNAMIQUE ===
 def get_prompt():
     user_part = f"user:\033[32m{current_user}\033[0m"
     db_part = f" & db:\033[34m{useDatabase}\033[0m" if isDbUse else ""
     return f"[{user_part}{db_part}]\n{DEFAULT_PROMPT} "
 
-# === BIENVENUE ===
-print("╔══════════════════════════════════════════════════════════════╗")
-print("║                    Welcome to my_diaries                     ║")
-print("╚══════════════════════════════════════════════════════════════╝")
-print("Type 'help' to see available commands\n")
+# === AUTHENTIFICATION AU DÉMARRAGE ===
+def login():
+    """Demande les identifiants au démarrage"""
+    
+    max_attempts = 1
+    attempts = 0
+    
+    while attempts < max_attempts:
+        try:
+            username = input("Username: ").strip()
+            
+            if not username:
+                print("Username cannot be empty\n")
+                attempts += 1
+                continues
+            
+            password = getpass.getpass("Password: ")
+            
+            # Tentative de connexion
+            user = db.userManager.switch_to(username, password)
+            
+            if user:
+                print("╔══════════════════════════════════════════════════════════════╗")
+                print("║                    Welcome to my_diaries                     ║")
+                print("╚══════════════════════════════════════════════════════════════╝")
+                print()
+                print(f"\n✓ Welcome {username}!")
+                print("Type 'help' to see available commands\n")
+                return user
+            else:
+                attempts += 1
+                remaining = max_attempts - attempts
+                if remaining > 0:
+                    print(f"Invalid credentials. {remaining} attempt(s) remaining\n")
+                else:
+                    print("Maximum attempts reached. Exiting...")
+                    exit(1)
+                    
+        except KeyboardInterrupt:
+            print("\n\n👋 Login cancelled. Exiting...")
+            exit(0)
+        except EOFError:
+            print("\n\n👋 Login cancelled. Exiting...")
+            exit(0)
+    
+    print("Authentication failed. Exiting...")
+    exit(1)
+
+# === CONNEXION INITIALE ===
+logged_user = login()
+current_user = logged_user["username"]
+
+# === ÉTAT ===
+useDatabase = ""
+isDbUse = False
+
+# Charger l'historique de l'utilisateur connecté
+load_user_history(current_user)
 
 # === BOUCLE PRINCIPALE ===
 while True:
@@ -147,7 +191,6 @@ while True:
             
             if new_user:
                 save_user_history(current_user)
-                
                 clear_readline_history()
                 
                 current_user = username
@@ -164,13 +207,13 @@ while True:
             print("Usage: switch_to <username>;")
         
         continue
+        
     elif cmd_line == "alter_table":
         if not isDbUse:
             print("No database selected")
             print("Use: use_db <database_name>;")
             continue
         
-        # Importer et appeler la fonction
         from commands.table_commands import handle_alter_table
         handle_alter_table(cmd, db, useDatabase, config)
         continue
