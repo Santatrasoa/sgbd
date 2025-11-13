@@ -136,11 +136,9 @@ while True:
             # Vérifier si password= est dans la commande (ancien mode)
             pwd_part = [p for p in parts if p.startswith("password=")]
             
-            # MODE SÉCURISÉ : demander avec getpass
             if not pwd_part:
                 password = getpass.getpass("Password: ")
             else:
-                # Mode ancien (déconseillé)
                 password = pwd_part[0].split("=", 1)[1]
                 print("⚠️ Warning: Password visible in command history!")
             
@@ -168,7 +166,7 @@ while True:
         continue
     elif cmd_line == "alter_table":
         if not isDbUse:
-            print("❌ No database selected")
+            print("No database selected")
             print("Use: use_db <database_name>;")
             continue
         
@@ -178,7 +176,7 @@ while True:
         continue
 
     # === COMMANDES DB ===
-    if cmd_line in ["create_db", "create_database", "use_database", "use_db", "drop_db", "list_db", "stats_db", "leave_db"]:
+    if cmd_line in ["create_db", "create_database", "use_database", "use_db", "drop_db", "list_database","list_db", "stats_db", "leave_db"]:
         result = handle_db_commands(cmd, cmd_line, db, get_prompt(), DEFAULT_PROMPT, SEPARATOR)
 
     # === COMMANDES TABLE ===
