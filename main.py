@@ -90,7 +90,6 @@ def login():
                 if remaining > 0:
                     print(f"Invalid credentials. {remaining} attempt(s) remaining\n")
                 else:
-                    print("Maximum attempts reached. Exiting...")
                     exit(1)
                     
         except KeyboardInterrupt:

@@ -208,6 +208,9 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
 # Ajouter cette fonction à votre fichier table_commands.py existant
 # Ou créer ce fichier s'il n'existe pas
 
+import re
+from pathlib import Path
+
 
 def handle_alter_table(cmd, db, useDatabase, config):
     """
@@ -221,7 +224,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
     - ALTER_TABLE nom RENAME TO new_name;
     """
     
-    DB_PATH = config.get("db_path", ".database")
+    DB_PATH = Path(config.get("db_path", ".database"))
     
     try:
         # Parser la commande : ALTER_TABLE nom ...
@@ -233,8 +236,8 @@ def handle_alter_table(cmd, db, useDatabase, config):
         table_name = parts[1]  # ALTER_TABLE <nom>
         action = parts[2].upper()  # ADD, DROP, RENAME, MODIFY
         
-        # Chemin vers le fichier de la table
-        table_path = Path(f"{DB_PATH}/{useDatabase}/{table_name}.enc")
+        # Chemin vers le fichier de la table (CHIFFRÉ)
+        table_path = DB_PATH / useDatabase / f"{table_name}.enc"
         
         if not table_path.exists():
             print(f"Table '{table_name}' does not exist")
@@ -254,14 +257,11 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 return
         
         # ========================================
-        # CHARGEMENT AVEC CHIFFREMENT
+        # CHARGEMENT AVEC DÉCHIFFREMENT
         # ========================================
-        with open(table_path, "rb") as f:  # Mode binaire pour le chiffrement
-            encrypted_data = f.read()
-        
-        # Déchiffrer les données
-        decrypted_json = db.crypto.decrypt(encrypted_data)
-        table_data = json.loads(decrypted_json)
+        encrypted_data = table_path.read_bytes()
+        # db.crypto.decrypt() retourne directement un dict, pas une string JSON
+        table_data = db.crypto.decrypt(encrypted_data)
         
         caracteristiques = table_data.get("caracteristique", {})
         constraints = table_data.get("constraint", {})
@@ -360,9 +360,13 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Vérifier si c'est une clé primaire
             col_constraints = constraints.get(col_name, [])
             if "Primary_key" in col_constraints or "primary_key" in [c.lower() for c in col_constraints]:
-                confirm = input(f"⚠️ '{col_name}' is a PRIMARY KEY. Continue? (yes/no): ").lower()
-                if confirm not in ["yes", "y"]:
-                    print("Operation cancelled")
+                try:
+                    confirm = input(f"⚠️ '{col_name}' is a PRIMARY KEY. Continue? (yes/no): ").lower()
+                    if confirm not in ["yes", "y"]:
+                        print("Operation cancelled")
+                        return
+                except (KeyboardInterrupt, EOFError):
+                    print("\nOperation cancelled")
                     return
             
             # Supprimer la colonne
@@ -477,9 +481,13 @@ def handle_alter_table(cmd, db, useDatabase, config):
             if old_type.lower() != type_part.lower():
                 print(f"⚠️ Warning: Changing type from {old_type} to {type_part}")
                 print("   Existing data may become incompatible")
-                confirm = input("Continue? (yes/no): ").lower()
-                if confirm not in ["yes", "y"]:
-                    print("Operation cancelled")
+                try:
+                    confirm = input("Continue? (yes/no): ").lower()
+                    if confirm not in ["yes", "y"]:
+                        print("Operation cancelled")
+                        return
+                except (KeyboardInterrupt, EOFError):
+                    print("\nOperation cancelled")
                     return
             
             # Modifier le type et les contraintes
@@ -493,6 +501,11 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # ==========================================
         elif action == "RENAME" and len(parts) > 3 and parts[3].upper() == "TO":
             # ALTER_TABLE users RENAME TO customers;
+            if len(parts) < 5:
+                print("New table name required")
+                print("Example: ALTER_TABLE users RENAME TO customers;")
+                return
+            
             new_table_name = parts[4]
             
             # Valider le nouveau nom
@@ -500,18 +513,19 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 print(f"Invalid table name: '{new_table_name}'")
                 return
             
-            new_table_path = Path(f"{DB_PATH}/{useDatabase}/{new_table_name}.json")
+            new_table_path = DB_PATH / useDatabase / f"{new_table_name}.enc"
             if new_table_path.exists():
                 print(f"Table '{new_table_name}' already exists")
                 return
             
-            # Sauvegarder avec le nouveau nom
+            # Préparer les données à sauvegarder
             table_data["caracteristique"] = caracteristiques
             table_data["constraint"] = constraints
             table_data["data"] = data
             
-            with open(new_table_path, "w", encoding="utf-8") as f:
-                json.dump(table_data, f, indent=2, ensure_ascii=False)
+            # Chiffrer et sauvegarder avec le nouveau nom
+            encrypted_data = db.crypto.encrypt(table_data)
+            new_table_path.write_bytes(encrypted_data)
             
             # Supprimer l'ancien fichier
             table_path.unlink()
@@ -529,17 +543,24 @@ def handle_alter_table(cmd, db, useDatabase, config):
             print("  ALTER_TABLE <n> RENAME TO <new_name>;")
             return
         
-        # Sauvegarder les modifications (sauf pour RENAME TO qui sauvegarde séparément)
+        # ========================================
+        # SAUVEGARDE AVEC CHIFFREMENT
+        # ========================================
+        # (sauf pour RENAME TO qui sauvegarde séparément)
         table_data["caracteristique"] = caracteristiques
         table_data["constraint"] = constraints
         table_data["data"] = data
         
-        with open(table_path, "w", encoding="utf-8") as f:
-            json.dump(table_data, f, indent=2, ensure_ascii=False)
+        encrypted_data = db.crypto.encrypt(table_data)
+        table_path.write_bytes(encrypted_data)
         
     except ValueError as e:
         print(f"Syntax error: {e}")
         print("Usage: ALTER_TABLE <n> <action> ...;")
+    except KeyboardInterrupt:
+        print("\n^C Operation cancelled")
+    except EOFError:
+        print("\nOperation cancelled")
     except Exception as e:
         print(f"Error: {e}")
         import traceback
