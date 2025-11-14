@@ -330,6 +330,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
                     normalized_constraints.append(constraints_allowed[key])
                 else:
                     print(f"⚠️ Unknown constraint: {rc}")
+                    return
             
             # Ajouter la colonne
             caracteristiques[col_name] = type_part.capitalize() if type_part.lower() != "number" else "Number"
