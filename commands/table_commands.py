@@ -237,7 +237,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
         table_path = Path(f"{DB_PATH}/{useDatabase}/{table_name}.enc")
         
         if not table_path.exists():
-            print(f"❌ Table '{table_name}' does not exist")
+            print(f"Table '{table_name}' does not exist")
             return
         
         # Vérifier les permissions
@@ -275,7 +275,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             column_def = " ".join(parts[4:])
             
             if ":" not in column_def:
-                print("❌ Syntax error: expected format col:type[constraints]")
+                print("Syntax error: expected format col:type[constraints]")
                 print("Example: ALTER_TABLE users ADD COLUMN email:string[not_null];")
                 return
             
@@ -286,12 +286,12 @@ def handle_alter_table(cmd, db, useDatabase, config):
             
             # Valider le nom de colonne
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col_name):
-                print(f"❌ Invalid column name: '{col_name}'")
+                print(f"Invalid column name: '{col_name}'")
                 return
             
             # Vérifier que la colonne n'existe pas déjà
             if col_name in caracteristiques:
-                print(f"❌ Column '{col_name}' already exists")
+                print(f"Column '{col_name}' already exists")
                 return
             
             # Extraire type et contraintes
@@ -308,7 +308,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Valider le type
             all_types = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
             if type_part.lower() not in all_types:
-                print(f"❌ Unknown type '{type_part}'")
+                print(f"Unknown type '{type_part}'")
                 print(f"Available types: {', '.join(all_types)}")
                 return
             
@@ -349,12 +349,12 @@ def handle_alter_table(cmd, db, useDatabase, config):
             col_name = parts[4] if len(parts) > 4 else ""
             
             if not col_name:
-                print("❌ Column name required")
+                print("Column name required")
                 print("Example: ALTER_TABLE users DROP COLUMN email;")
                 return
             
             if col_name not in caracteristiques:
-                print(f"❌ Column '{col_name}' does not exist")
+                print(f"Column '{col_name}' does not exist")
                 return
             
             # Vérifier si c'est une clé primaire
@@ -362,7 +362,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             if "Primary_key" in col_constraints or "primary_key" in [c.lower() for c in col_constraints]:
                 confirm = input(f"⚠️ '{col_name}' is a PRIMARY KEY. Continue? (yes/no): ").lower()
                 if confirm not in ["yes", "y"]:
-                    print("❌ Operation cancelled")
+                    print("Operation cancelled")
                     return
             
             # Supprimer la colonne
@@ -383,7 +383,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
         elif action == "RENAME" and len(parts) > 3 and parts[3].upper() == "COLUMN":
             # ALTER_TABLE users RENAME COLUMN old_name TO new_name;
             if len(parts) < 6 or parts[5].upper() != "TO":
-                print("❌ Syntax error")
+                print("Syntax error")
                 print("Example: ALTER_TABLE users RENAME COLUMN old_name TO new_name;")
                 return
             
@@ -391,16 +391,16 @@ def handle_alter_table(cmd, db, useDatabase, config):
             new_name = parts[6]
             
             if old_name not in caracteristiques:
-                print(f"❌ Column '{old_name}' does not exist")
+                print(f"Column '{old_name}' does not exist")
                 return
             
             if new_name in caracteristiques:
-                print(f"❌ Column '{new_name}' already exists")
+                print(f"Column '{new_name}' already exists")
                 return
             
             # Valider le nouveau nom
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', new_name):
-                print(f"❌ Invalid column name: '{new_name}'")
+                print(f"Invalid column name: '{new_name}'")
                 return
             
             # Renommer dans caracteristiques
@@ -425,7 +425,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             column_def = " ".join(parts[4:])
             
             if ":" not in column_def:
-                print("❌ Syntax error: expected format col:new_type[constraints]")
+                print("Syntax error: expected format col:new_type[constraints]")
                 print("Example: ALTER_TABLE users MODIFY COLUMN age:number[not_null];")
                 return
             
@@ -435,7 +435,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             type_and_constraints = col_parts[1].strip()
             
             if col_name not in caracteristiques:
-                print(f"❌ Column '{col_name}' does not exist")
+                print(f"Column '{col_name}' does not exist")
                 return
             
             # Extraire type et contraintes
@@ -452,7 +452,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             # Valider le type
             all_types = ["date", "year", "time", "datetime", "bool", "number", "float", "string", "text", "bit"]
             if type_part.lower() not in all_types:
-                print(f"❌ Unknown type '{type_part}'")
+                print(f"Unknown type '{type_part}'")
                 return
             
             # Normaliser les contraintes
@@ -479,7 +479,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 print("   Existing data may become incompatible")
                 confirm = input("Continue? (yes/no): ").lower()
                 if confirm not in ["yes", "y"]:
-                    print("❌ Operation cancelled")
+                    print("Operation cancelled")
                     return
             
             # Modifier le type et les contraintes
@@ -497,12 +497,12 @@ def handle_alter_table(cmd, db, useDatabase, config):
             
             # Valider le nouveau nom
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', new_table_name):
-                print(f"❌ Invalid table name: '{new_table_name}'")
+                print(f"Invalid table name: '{new_table_name}'")
                 return
             
             new_table_path = Path(f"{DB_PATH}/{useDatabase}/{new_table_name}.json")
             if new_table_path.exists():
-                print(f"❌ Table '{new_table_name}' already exists")
+                print(f"Table '{new_table_name}' already exists")
                 return
             
             # Sauvegarder avec le nouveau nom
@@ -520,7 +520,7 @@ def handle_alter_table(cmd, db, useDatabase, config):
             return  # Pas besoin de sauvegarder car on a déjà écrit le nouveau fichier
         
         else:
-            print("❌ Unknown ALTER_TABLE action")
+            print("Unknown ALTER_TABLE action")
             print("Supported actions:")
             print("  ALTER_TABLE <n> ADD COLUMN <col:type[constraints]>;")
             print("  ALTER_TABLE <n> DROP COLUMN <col>;")
@@ -538,9 +538,9 @@ def handle_alter_table(cmd, db, useDatabase, config):
             json.dump(table_data, f, indent=2, ensure_ascii=False)
         
     except ValueError as e:
-        print(f"❌ Syntax error: {e}")
+        print(f"Syntax error: {e}")
         print("Usage: ALTER_TABLE <n> <action> ...;")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()

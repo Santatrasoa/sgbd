@@ -74,7 +74,6 @@ def login():
             
             password = getpass.getpass("Password: ")
             
-            # Tentative de connexion
             user = db.userManager.switch_to(username, password)
             
             if user:
@@ -95,10 +94,10 @@ def login():
                     exit(1)
                     
         except KeyboardInterrupt:
-            print("\n\n👋 Login cancelled. Exiting...")
+            print("\n\nLogin cancelled. Exiting...")
             exit(0)
         except EOFError:
-            print("\n\n👋 Login cancelled. Exiting...")
+            print("\n\nLogin cancelled. Exiting...")
             exit(0)
     
     print("Authentication failed. Exiting...")
