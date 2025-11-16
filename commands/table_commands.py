@@ -346,7 +346,6 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # DROP COLUMN : Supprimer une colonne
         # ==========================================
         elif action == "DROP" and len(parts) > 3 and parts[3].upper() == "COLUMN":
-            # ALTER_TABLE users DROP COLUMN email;
             col_name = parts[4] if len(parts) > 4 else ""
             
             if not col_name:
@@ -358,7 +357,6 @@ def handle_alter_table(cmd, db, useDatabase, config):
                 print(f"Column '{col_name}' does not exist")
                 return
             
-            # Vérifier si c'est une clé primaire
             col_constraints = constraints.get(col_name, [])
             if "Primary_key" in col_constraints or "primary_key" in [c.lower() for c in col_constraints]:
                 try:
@@ -370,12 +368,10 @@ def handle_alter_table(cmd, db, useDatabase, config):
                     print("\nOperation cancelled")
                     return
             
-            # Supprimer la colonne
             del caracteristiques[col_name]
             if col_name in constraints:
                 del constraints[col_name]
             
-            # Supprimer la colonne de toutes les lignes
             for row in data:
                 if col_name in row:
                     del row[col_name]
@@ -426,7 +422,6 @@ def handle_alter_table(cmd, db, useDatabase, config):
         # MODIFY COLUMN : Modifier le type d'une colonne
         # ==========================================
         elif action == "MODIFY" and len(parts) > 3 and parts[3].upper() == "COLUMN":
-            # ALTER_TABLE users MODIFY COLUMN age:number[not_null];
             column_def = " ".join(parts[4:])
             
             if ":" not in column_def:

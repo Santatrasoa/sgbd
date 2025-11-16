@@ -81,7 +81,6 @@ def login():
                 print("║                    Welcome to my_diaries                     ║")
                 print("╚══════════════════════════════════════════════════════════════╝")
                 print()
-                print(f"\n✓ Welcome {username}!")
                 print("Type 'help' to see available commands\n")
                 return user
             else:
@@ -102,18 +101,15 @@ def login():
     print("Authentication failed. Exiting...")
     exit(1)
 
-# === CONNEXION INITIALE ===
 logged_user = login()
 current_user = logged_user["username"]
 
-# === ÉTAT ===
 useDatabase = ""
 isDbUse = False
 
 # Charger l'historique de l'utilisateur connecté
 load_user_history(current_user)
 
-# === BOUCLE PRINCIPALE ===
 while True:
     print("")
     try:
@@ -127,7 +123,6 @@ while True:
         print("\nBye! Thanks for using my_diaries")
         exit()
 
-    # === COMMANDES SYSTÈME SIMPLES (sans ;) ===
     if cmd.strip() in ["clear", "clear;"]:
         os.system("clear" if os.name != "nt" else "cls")
         continue
@@ -153,7 +148,6 @@ while True:
             exit()
         cmd += " " + next_line.strip()
 
-    # === NETTOYAGE DE LA COMMANDE ===
     cmd = cmd.strip()
     if not cmd.endswith(";"):
         continue
@@ -161,9 +155,18 @@ while True:
     if not cmd:
         continue
 
-    # === ANALYSE ===
     cmd_line = cmd.split(" ", 1)[0].lower() if " " in cmd else cmd.lower()
+    print(cmd_line)
     result = None
+
+    if cmd_line.strip() == "clear":
+        os.system("clear" if os.name != "nt" else "cls")
+        continue
+    if cmd_line.strip() == "exit":
+        save_user_history(current_user)
+        clear_readline_history()
+        print("Bye! Thanks for using my_diaries")
+        exit()
 
     if cmd_line == "switch_to":
         try:
