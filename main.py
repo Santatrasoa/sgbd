@@ -107,11 +107,9 @@ current_user = logged_user["username"]
 useDatabase = ""
 isDbUse = False
 
-# Charger l'historique de l'utilisateur connecté
 load_user_history(current_user)
 
 while True:
-    print("")
     try:
         cmd = input("my_diaries ~ " + get_prompt())
     except KeyboardInterrupt:

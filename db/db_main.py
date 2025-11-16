@@ -165,7 +165,7 @@ class Db:
                 f"{data_count} row{'s' if data_count > 1 else ''}")
             print(separator)
 
-            self.check_constraints(db_name, table_name, {})  # Exemple d'appel
+            # self.check_constraints(db_name, table_name, {})  # Exemple d'appel
 
         except Exception as e:
             print(f"Error: {e}")

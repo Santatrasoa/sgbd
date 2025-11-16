@@ -22,10 +22,6 @@ def check_permission(db: Db, operation, database_name, table_name=None):
     except:
         return False
 
-    # commands/table_commands.py
-import re
-from utils.helpers import validate_table_name, split_top_level_commas
-
 def check_permission(db: Db, operation, database_name, table_name=None):
     username = db.current_user.get("username")
     role = db.current_user.get("role")
@@ -43,7 +39,6 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
         print("Use: use_db <nom_base>;")
         return
 
-    # CHARGÉ DEPUIS config.json
     allType = [t.lower() for t in config["allowed_data_types"]]
     constraints_allowed = {k.lower(): v for k, v in config["allowed_constraints"].items()}
 
@@ -201,16 +196,6 @@ def handle_table_commands(cmd, cmd_line, db, useDatabase, isDbUse, SEPARATOR, co
             return
         # CORRIGÉ : passe db_name + table_name
         db.describe_table(useDatabase, table_name)
-
-# commands/table_commands.py - Ajouter cette fonction
-
-# commands/table_commands.py
-# Ajouter cette fonction à votre fichier table_commands.py existant
-# Ou créer ce fichier s'il n'existe pas
-
-import re
-from pathlib import Path
-
 
 def handle_alter_table(cmd, db, useDatabase, config):
     """
