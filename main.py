@@ -1,11 +1,29 @@
 import os
-import readline
 import getpass
 from pathlib import Path
 from utils.config_loader import load_config
 from utils.crypto import CryptoManager
 from db.db_main import Db
-from commands import *
+
+try:
+    import readline
+except ImportError:
+    try:
+        import pyreadline as readline
+    except ImportError:
+        print("Warning: readline module not fully available. Command history will be limited.")
+        class DummyReadline:
+            def get_current_history_length(self): return 0
+            def remove_history_item(self, index): pass
+            def read_history_file(self, filename): pass
+            def write_history_file(self, filename): pass
+        readline = DummyReadline()
+
+from commands.db_commands import handle_db_commands
+from commands.user_perm_commands import handle_user_perm_commands
+from commands.table_commands import handle_alter_table, handle_table_commands
+from commands.query_commands import handle_query_commands
+
 
 # === CONFIG ===
 config = load_config()
@@ -31,36 +49,43 @@ def get_history_file(username: str) -> Path:
 
 def clear_readline_history():
     """Vide l'historique en mémoire de readline"""
-    while readline.get_current_history_length():
-        readline.remove_history_item(0)
+    # Vérifie si l'objet readline n'est pas l'objet Dummy
+    if hasattr(readline, 'get_current_history_length'):
+        while readline.get_current_history_length():
+            readline.remove_history_item(0)
 
 def load_user_history(username: str):
     clear_readline_history()
     hist_file = get_history_file(username)
-    if hist_file.exists():
-        try:
-            readline.read_history_file(str(hist_file))
-        except Exception as e:
-            print(f"⚠️ Could not load history for {username}: {e}")
+    # Vérifie si l'objet readline n'est pas l'objet Dummy
+    if hasattr(readline, 'read_history_file'):
+        if hist_file.exists():
+            try:
+                readline.read_history_file(str(hist_file))
+            except Exception as e:
+                print(f"⚠️ Could not load history for {username}: {e}")
 
 def save_user_history(username: str):
     hist_file = get_history_file(username)
-    try:
-        readline.write_history_file(str(hist_file))
-    except Exception as e:
-        print(f"⚠️ Could not save history for {username}: {e}")
+    # Vérifie si l'objet readline n'est pas l'objet Dummy
+    if hasattr(readline, 'write_history_file'):
+        try:
+            readline.write_history_file(str(hist_file))
+        except Exception as e:
+            print(f"⚠️ Could not save history for {username}: {e}")
 
 # === PROMPT DYNAMIQUE ===
 def get_prompt():
     user_part = f"user:\033[32m{current_user}\033[0m"
     db_part = f" & db:\033[34m{useDatabase}\033[0m" if isDbUse else ""
+    # Le prompt d'entrée est maintenant séparé du décorateur statique
     return f"[{user_part}{db_part}]\n{DEFAULT_PROMPT} "
 
 # === AUTHENTIFICATION AU DÉMARRAGE ===
 def login():
     """Demande les identifiants au démarrage"""
     
-    max_attempts = 1
+    max_attempts = 3 # Nombre d'essais standard
     attempts = 0
     
     while attempts < max_attempts:
@@ -70,7 +95,7 @@ def login():
             if not username:
                 print("Username cannot be empty\n")
                 attempts += 1
-                continues
+                continue # Correction: 'continue' au lieu de 'continues'
             
             password = getpass.getpass("Password: ")
             
@@ -89,7 +114,7 @@ def login():
                 if remaining > 0:
                     print(f"Invalid credentials. {remaining} attempt(s) remaining\n")
                 else:
-                    exit(1)
+                    break 
                     
         except KeyboardInterrupt:
             print("\n\nLogin cancelled. Exiting...")
@@ -111,7 +136,8 @@ load_user_history(current_user)
 
 while True:
     try:
-        cmd = input("my_diaries ~ " + get_prompt())
+        # Le prompt statique est maintenant intégré dans get_prompt()
+        cmd = input(get_prompt())
     except KeyboardInterrupt:
         print("\n^C")
         continue
@@ -121,7 +147,9 @@ while True:
         print("\nBye! Thanks for using my_diaries")
         exit()
 
+    # --- Nettoyage de l'écran avant le parsing de commande ---
     if cmd.strip() in ["clear", "clear;"]:
+        # Pour Windows: 'cls', pour Unix-like: 'clear'
         os.system("clear" if os.name != "nt" else "cls")
         continue
 
@@ -157,6 +185,7 @@ while True:
     print(cmd_line)
     result = None
 
+    # Redondance pour 'clear' et 'exit' au cas où l'utilisateur les tape sans point-virgule
     if cmd_line.strip() == "clear":
         os.system("clear" if os.name != "nt" else "cls")
         continue
@@ -213,7 +242,6 @@ while True:
             print("Use: use_db <database_name>;")
             continue
         
-        from commands.table_commands import handle_alter_table
         handle_alter_table(cmd, db, useDatabase, config)
         continue
 
@@ -252,5 +280,7 @@ while True:
         continue
 
     # === MISE À JOUR PROMPT ===
+    # Le résultat de handle_db_commands contient l'état de la base de données actuelle
     if result is not None and len(result) >= 4:
+        # On extrait useDatabase et isDbUse du résultat de la commande
         _, _, useDatabase, isDbUse = result
