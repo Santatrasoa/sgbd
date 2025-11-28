@@ -119,8 +119,16 @@ class Db:
                 if col not in caracteristiques:
                     print(f"Column '{col}' does not exist")
                     return False
-                addedData[col] = value
+                # Coerce value based on declared column type
+                declared_type = caracteristiques.get(col, "string")
+                coerced_value = self._coerce_value(value, declared_type)
+                addedData[col] = coerced_value
             # Validation contraintes...
+            # Check constraints against coerced values
+            if not self.check_constraints(db_name, table_name, addedData):
+                print("Constraint check failed. Insertion aborted.")
+                return False
+
             content["data"].append(addedData)
             self.save_table(db_name, table_name, content)
             print("Data added")
@@ -169,6 +177,74 @@ class Db:
 
         except Exception as e:
             print(f"Error: {e}")
+
+    def _is_int_str(self, s: str) -> bool:
+        """Return True if s represents an integer (no decimal point)."""
+        try:
+            if s.startswith(('0x', '0X')):
+                return False
+            int(s)
+            return True
+        except Exception:
+            return False
+
+    def _coerce_value(self, raw_value: str, declared_type: str):
+        """Coerce the raw string value to the appropriate Python type according to declared_type.
+
+        Rules implemented:
+        - string/text: keep as Python str
+        - number: try int, fall back to float if contains '.'
+        - float: float()
+        - bool: interpret true/false (case-insensitive), 1/0
+        - date/time/datetime/year/bit: keep as str for now
+        """
+        if raw_value is None:
+            return None
+
+        t = str(declared_type).lower()
+        v = raw_value.strip()
+
+        # Handle quoted strings explicitly
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            return v[1:-1]
+
+        if t in ("string", "text"):
+            return v
+
+        if t == "number":
+            # Prefer integer when possible
+            if self._is_int_str(v):
+                try:
+                    return int(v)
+                except Exception:
+                    pass
+            try:
+                return int(float(v))
+            except Exception:
+                try:
+                    return float(v)
+                except Exception:
+                    return v
+
+        if t == "float":
+            try:
+                return float(v)
+            except Exception:
+                return v
+
+        if t == "bool":
+            low = v.lower()
+            if low in ("true", "t", "1", "yes", "y", "oui"):
+                return True
+            if low in ("false", "f", "0", "no", "n", "non"):
+                return False
+            # fallback: if it's numeric
+            if self._is_int_str(v):
+                return bool(int(v))
+            return v
+
+        # For other types (date, time, datetime, year, bit) just return raw string
+        return v
     def show_databases(self) -> None:
         """Affiche toutes les bases de données disponibles"""
         allDirs = self.list_database()
