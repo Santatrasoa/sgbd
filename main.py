@@ -63,7 +63,7 @@ def load_user_history(username: str):
             try:
                 readline.read_history_file(str(hist_file))
             except Exception as e:
-                print(f"⚠️ Could not load history for {username}: {e}")
+                print(f"Could not load history for {username}: {e}")
 
 def save_user_history(username: str):
     hist_file = get_history_file(username)
@@ -72,7 +72,7 @@ def save_user_history(username: str):
         try:
             readline.write_history_file(str(hist_file))
         except Exception as e:
-            print(f"⚠️ Could not save history for {username}: {e}")
+            print(f"Could not save history for {username}: {e}")
 
 # === PROMPT DYNAMIQUE ===
 def get_prompt():
@@ -205,14 +205,13 @@ while True:
             
             username = parts[1]
             
-            # Vérifier si password= est dans la commande (ancien mode)
             pwd_part = [p for p in parts if p.startswith("password=")]
             
             if not pwd_part:
                 password = getpass.getpass("Password: ")
             else:
                 password = pwd_part[0].split("=", 1)[1]
-                print("⚠️ Warning: Password visible in command history!")
+                print("Warning: Password visible in command history!")
             
             # Tenter la connexion
             new_user = db.userManager.switch_to(username, password)
